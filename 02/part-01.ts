@@ -71,4 +71,4 @@ function isDecreasingWithinSafeMargins(current: number, previous: number) {
     return 1 <= diff && diff <= 3;
 }
 
-console.log(`The number of safe reports is ${safeReportCount}`)
+console.log(`P1: The number of safe reports is ${safeReportCount}`)
