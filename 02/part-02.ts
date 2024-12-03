@@ -50,23 +50,21 @@ for (const reportRow of fileArr) {
                     // if index to skip is !== -1, then we've already done a lookahead, we can't lookahead
                     // again...
                     if (
-                        indexToSkip === -1
-                        && passesSafetyChecks(increasingOrDecreasing, newCurrentIsGreaterThanPrevious, lookAheadVal, previousNum) 
+                        passesSafetyChecks(increasingOrDecreasing, newCurrentIsGreaterThanPrevious, lookAheadVal, previousNum) 
                     ) {
                         isSafeReport = true;
-                        indexToSkip = i;
                     } else {
-                        isSafeReport = false;
+                        // isSafeReport = false;
                         // cannot break out of forEach, need to throw instead
                         // break;
-                        throw new Error("All conditions failed")
+                        // throw new Error("All conditions failed")
                     }
                 }
 
             }
-            if (indexToSkip !== i) {
-                previousNum = new Number(report).valueOf();
-            }
+            // if (indexToSkip !== i) {
+            previousNum = new Number(report).valueOf();
+            // }
         })
     } catch (e) {
         isSafeReport = false;
