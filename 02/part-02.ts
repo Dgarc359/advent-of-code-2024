@@ -41,9 +41,10 @@ for (const reportRow of fileArr) {
                     //check dampener conditions are true
                     const lookAheadIndex = i + 1;
                     if (lookAheadIndex >= reportsArr.length) {
-                        isSafeReport = false;
-                        throw new Error("can't look ahead outside of array")
+                        // throw new Error("can't look ahead outside of array, ignoring the last element might have saved us here?")
+                        return;
                     }
+
                     const lookAheadVal = new Number(reportsArr[lookAheadIndex]).valueOf();
                     let newCurrentIsGreaterThanPrevious: boolean = lookAheadVal > previousNum;
 
@@ -57,14 +58,12 @@ for (const reportRow of fileArr) {
                         // isSafeReport = false;
                         // cannot break out of forEach, need to throw instead
                         // break;
-                        // throw new Error("All conditions failed")
+                        throw new Error("All conditions failed")
                     }
                 }
 
             }
-            // if (indexToSkip !== i) {
             previousNum = new Number(report).valueOf();
-            // }
         })
     } catch (e) {
         isSafeReport = false;
@@ -74,10 +73,10 @@ for (const reportRow of fileArr) {
 
 
     if (isSafeReport) {
-        console.log("safe")
+        // console.log("safe")
         safeReportCount += 1;
     }else {
-        console.log("unsafe")
+        console.log("unsafe", reportRow)
     }
 }
 
