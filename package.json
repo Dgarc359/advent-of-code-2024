@@ -1,12 +1,14 @@
 {
   "name": "advent-of-code-2024",
   "scripts": {
-    "01": "yarn workspace 01 start"
+    "01": "yarn workspace 01 start",
+    "02": "yarn workspace 02 start"
   },
   "version": "1.0.0",
   "private": "true",
   "workspaces": [
-    "01"
+    "01",
+    "02"
   ],
   "dependencies": {
     "typescript": "^5.7.2",
