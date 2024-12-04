@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 
 // read file
 const file = fs.readFileSync("./03-input.txt").toString();
+console.log("file length", file.length)
 
 const mulRegex = /mul\(\d{1,3},\d{1,3}\)/g
 const numRegex = /\d{1,3}/g
@@ -11,26 +12,28 @@ const indicesOfDo: number[] = [];
 const indicesOfDont: number[] = [];
 
 // try copying to make sure we're not sharing the same file string
-let doFile = new String(file.toString());
-let dontFile = new String(file.toString());
+let doFile = file.toString();
+let dontFile = file.toString();
 
 let indexPos = 0;
 while(true) {
-    const doIndex = doFile.indexOf("do()", indexPos);
+    const doIndex = doFile.indexOf("do\(\)", indexPos);
 
     if(doIndex < 0) break;
 
     indicesOfDo.push(doIndex);
-    indexPos += doIndex + "do()".length;
+    indexPos = doIndex;
+    indexPos += "do\(\)".length;
 }
 
 indexPos = 0;
 while(true) {
-    const dontIndex = dontFile.indexOf("don\'t()", indexPos);
+    const dontIndex = dontFile.indexOf("don\'t\(\)", indexPos);
     if(dontIndex < 0) break;
 
     indicesOfDont.push(dontIndex);
-    indexPos += dontIndex + "don't".length;
+    indexPos = dontIndex;
+    indexPos += "don't".length;
 }
 
 console.log("do indices", indicesOfDo)
@@ -54,7 +57,6 @@ for (const regMatch of mulMatches) {
         const numMatches = regMatch.match(numRegex);
         
         if(!numMatches) continue;
-        // console.log(numMatches)
         
         const numOne = new Number(numMatches[0]).valueOf();
         const numTwo = new Number(numMatches[1]).valueOf();
