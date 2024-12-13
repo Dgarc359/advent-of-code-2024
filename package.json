@@ -3,17 +3,21 @@
   "scripts": {
     "01": "yarn workspace 01 start",
     "02": "yarn workspace 02 start",
-    "03": "yarn workspace 03 start"
+    "03": "yarn workspace 03 start",
+    "04": "yarn workspace 04 start"
   },
   "version": "1.0.0",
   "private": "true",
   "workspaces": [
     "01",
     "02",
-    "03"
+    "03",
+    "04"
   ],
   "dependencies": {
-    "typescript": "^5.7.2",
-    "ts-node": "^10.9.2"
+    "@types/node": "^22.10.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.7.2"
   }
 }
