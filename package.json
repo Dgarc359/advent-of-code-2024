@@ -4,7 +4,8 @@
     "01": "yarn workspace 01 start",
     "02": "yarn workspace 02 start",
     "03": "yarn workspace 03 start",
-    "04": "yarn workspace 04 start"
+    "04": "yarn workspace 04 start",
+    "05": "yarn workspace 05 start"
   },
   "version": "1.0.0",
   "private": "true",
@@ -12,7 +13,8 @@
     "01",
     "02",
     "03",
-    "04"
+    "04",
+    "05"
   ],
   "dependencies": {
     "@types/node": "^22.10.2",
