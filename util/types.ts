@@ -1,0 +1,1 @@
+export type Cardinals = "north" | "south" | "east" | "west"

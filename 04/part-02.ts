@@ -9,13 +9,13 @@ const grid = new GridContainer<GridTile, OutOfBoundsResponse>(-1);
 
 const yRows = file.split('\n')
 
-grid.setYLength(yRows.length)
+grid.setHeight(yRows.length)
 // Add rows to grid container to have access to some simple utils
 for (const yRow of yRows) {
   if(yRow === '') continue;
 
   const xRow = yRow.split("")
-  grid.setXLength(xRow.length)
+  grid.setWidth(xRow.length)
   grid.pushToGrid(xRow)
 }
 
