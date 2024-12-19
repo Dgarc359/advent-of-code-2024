@@ -42,9 +42,9 @@ export class GridContainer<A, T> {
 
     try {
       const yRow = this.grid[y];
-      console.debug(`tried to grab grid item from yRow: ${yRow}`);
+      // console.debug(`tried to grab grid item from yRow: ${yRow}`);
       const xElem = yRow[x];
-      console.log(`xElem with x: ${x} y: ${y} index is ${xElem}`);
+      // console.log(`xElem with x: ${x} y: ${y} index is ${xElem}`);
       return xElem;
     } catch (e) {
       console.error(`something happened trying to access x: ${x} y: ${y}`);
@@ -63,6 +63,7 @@ export class GridContainer<A, T> {
   getInnerGrid(): A[][] {
     return this.grid;
   }
+
 
   logCurrentGrid() {
     console.log(this.grid);

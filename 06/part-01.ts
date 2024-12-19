@@ -1,17 +1,13 @@
 import fs from "node:fs";
 import { GridContainer } from "@/util/grid-container";
-import { Cardinals } from "@/util/types";
+import { Cardinals, CoordinateXY } from "@/util/types";
 
 const map = fs.readFileSync("./input.txt").toString();
 
-//                      y,      x
-type Coordinate = `${number}-${number}`;
-
 const mapGrid = new GridContainer<string, undefined>(undefined);
-// const obstacleIndex: Map<Coordinate, true> = new Map();
 
 const yRows = map.split("\n");
-let currGuardPos: Coordinate = undefined!;
+let currGuardPos: CoordinateXY = undefined!;
 let currGuardDirection: Cardinals = "north";
 
 mapGrid.setHeight(yRows.length);
@@ -23,8 +19,8 @@ for (let y = 0; y < yRows.length; y++) {
 
     if (tile === "^") {
       console.log(`found guard at y: ${y} ${x}`);
-      currGuardPos = `${y}-${x}`;
-      mapGrid.setGridItem(x, y, 'X')
+      currGuardPos = { x, y };
+      mapGrid.setGridItem(x, y, "X");
     }
   }
 
@@ -33,31 +29,40 @@ for (let y = 0; y < yRows.length; y++) {
 }
 
 function decideNextGuardTile(
-  currTile: Coordinate,
+  currTile: CoordinateXY,
   currDirection: Cardinals,
   grid: GridContainer<string, undefined>
-): { nextTile: string; nextTileCoord: Coordinate } | undefined {
-  // gives y, x coordinates
-  let [y, x] = currTile.split("-").map((e) => Number(e).valueOf());
+): { nextTileCoord: CoordinateXY, currentDirection: Cardinals } | undefined {
+  let { x, y } = currTile;
+
   grid.setGridItem(x, y, "X");
+
+  // first check to see if we need to change guard's direction
+  let potentialX = x;
+  let potentialY = y;
+
+  if (currDirection === "north") potentialY -= 1;
+  else if (currDirection === "south") potentialY += 1;
+  else if (currDirection === "east") potentialX += 1;
+  else if (currDirection === "west") potentialX -= 1;
+
+  if (grid.getGridItem(potentialX, potentialY) === "#") {
+    currDirection = setNextGuardDirection(currGuardDirection);
+  }
+  // after we've potentially changed his direction
+  // then we can move on to moving the guard
 
   if (currDirection === "north") y -= 1;
   else if (currDirection === "south") y += 1;
   else if (currDirection === "east") x += 1;
   else if (currDirection === "west") x -= 1;
-  console.log(
-    `new curr guard tile is x: ${x} y: ${y}, guard is facing: ${currDirection}`
-  );
 
   if (!grid.getGridItem(x, y)) {
-    console.log(
-      `returning undefined, x: ${x}, y: ${y}, ${grid.getGridItem(x, y)}`
-    );
     return undefined;
   } else {
     const response = {
-      nextTile: grid.getGridItem(x, y)!,
-      nextTileCoord: `${y}-${x}` as Coordinate,
+      nextTileCoord: { x, y },
+      currentDirection: currDirection,
     };
 
     return response;
@@ -85,16 +90,15 @@ do {
     mapGrid
   );
   if (!nextGuardTile) break;
-  console.log(`decided on next guard tile: ${JSON.stringify(nextGuardTile)}`);
 
   currGuardPos = nextGuardTile.nextTileCoord;
-
-  if (nextGuardTile.nextTile === "#")
-    currGuardDirection = setNextGuardDirection(currGuardDirection);
+  currGuardDirection = nextGuardTile.currentDirection;
 } while (nextGuardTile);
 
 let guardVisitCount = 0;
-for (const yRow of mapGrid.getInnerGrid()) {
+const innerMapGrid = mapGrid.getInnerGrid();
+console.log("");
+for (const yRow of innerMapGrid) {
   for (const xElem of yRow) {
     if (xElem === "X") {
       guardVisitCount += 1;
