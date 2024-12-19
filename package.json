@@ -1,22 +1,12 @@
 {
   "name": "advent-of-code-2024",
   "scripts": {
-    "01": "yarn workspace 01 start",
-    "02": "yarn workspace 02 start",
-    "03": "yarn workspace 03 start",
-    "04": "yarn workspace 04 start",
-    "05": "yarn workspace 05 start",
-    "06": "yarn workspace 06 start"
+    "s": "throwaway_func() { yarn workspace $1 start; }; throwaway_func "
   },
   "version": "1.0.0",
   "private": "true",
   "workspaces": [
-    "01",
-    "02",
-    "03",
-    "04",
-    "05",
-    "06"
+    "0*"
   ],
   "dependencies": {
     "@types/node": "^22.10.2",
