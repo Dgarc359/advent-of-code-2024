@@ -5,9 +5,7 @@
   },
   "version": "1.0.0",
   "private": "true",
-  "workspaces": [
-    "0*"
-  ],
+  "workspaces": ["*"],
   "dependencies": {
     "@types/node": "^22.10.2",
     "ts-node": "^10.9.2",
