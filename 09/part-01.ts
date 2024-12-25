@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 
-const diskMap = fs.readFileSync('input-simple-02.txt');
+const diskMap = fs.readFileSync('input.txt');
 
 type ExpandedDiskMap = (number | '.')[];
 type EmptyFileIndex = { start: number, end: number }[]
@@ -27,11 +27,11 @@ for (const [index, fileOrFreeSpace] of diskMap.toString().split("").entries()) {
   isFile = !isFile;
 }
 
-console.log('expanded disk map',expandedDiskMap)
+// console.log('expanded disk map',expandedDiskMap)
 
 function getLastNumberInArray(diskMap: ExpandedDiskMap, trueLength: number): { idxOfLastNumber: number, lastNumber: number, negativeIndex: number } | undefined {
   for(const [index, block] of diskMap.entries()) {
-    if(!(index < trueLength - 1)) continue;
+    if(diskMap.length - index >= trueLength) continue;
 
     const lastValue = diskMap.at(-index)
     if(lastValue && lastValue !== '.') return {idxOfLastNumber: diskMap.length - index, lastNumber: lastValue, negativeIndex: -index };
@@ -44,33 +44,29 @@ function rearrangeDiskMap(diskMap: ExpandedDiskMap, emptyFileIndexes: EmptyFileI
   let trueLength = diskMap.length;
 
   for (const [index, block] of diskMap.entries()) {
-    if(!(index < trueLength - 1)) {
+    console.log(`current index: ${index} current block: ${block}, current true length: ${trueLength}`)
+    // console.log(`true length yields this arr: ${diskMap.slice(index, trueLength)}`)
+    if(index >= trueLength) {
       return;
     }
 
     if (block === '.') {
-      const lastNumberAndIdx = getLastNumberInArray(diskMap, trueLength);
+      const lastNumberAndIdx = getLastNumberInArray(diskMap.slice(index, trueLength), trueLength);
 
-      if(!lastNumberAndIdx) throw new Error("Something weird happened trying to get a number when a block is open..");
+      if(!lastNumberAndIdx) break;
 
       rearrangedDiskMap.push(lastNumberAndIdx.lastNumber)
-      trueLength += lastNumberAndIdx.negativeIndex;
+      trueLength += lastNumberAndIdx.negativeIndex
     } else {
       rearrangedDiskMap.push(block)
     }
+
+    // console.log(`reArranged diskMap: ${rearrangedDiskMap}`)
   }
 }
 
 rearrangeDiskMap(expandedDiskMap, emptyFileIndexes)
 
-// checksum = rearrangedDiskMap.map((prev, curr, idx, arr) => {
-//   console.log(`math is: ${idx} * ${curr} + ${prev}`)
-//   const mulVal = curr * idx;
-
-//   return mulVal + prev;
-// })
-
 checksum = rearrangedDiskMap.map((v, idx) => {return v * idx}).reduce((prev, curr) => prev + curr)
 
-// console.log(expandedDiskMap.toString(), "emptyFileIndex", JSON.stringify(emptyFileIndexes));
-console.log(rearrangedDiskMap, 'checksum', checksum)
+console.log('checksum', checksum)
