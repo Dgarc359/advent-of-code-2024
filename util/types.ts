@@ -2,7 +2,7 @@ export type Cardinals = "north" | "south" | "east" | "west"
 
 export type CoordinateXY = {
   x: number,
-  y: number,
+  y: number
 }
 
 export type CoordinateXYZ = {
