@@ -1,3 +1,5 @@
+import { CoordinateXY } from "./types";
+
 /**
  * A class representing a grid container that holds a 2D array of items.
  *
@@ -36,6 +38,10 @@ export class GridContainer<A, T> {
     this.grid.push(row);
   }
 
+  getCoordGridItem(coord: CoordinateXY): A | T {
+    return this.getGridItem(coord.x, coord.y);
+  }
+
   getGridItem(x: number, y: number): A | T {
     if (x < 0 || x >= this.xLength) return this.outOfBoundsResponse;
     if (y < 0 || y >= this.yLength) return this.outOfBoundsResponse;
@@ -53,6 +59,10 @@ export class GridContainer<A, T> {
     return this.outOfBoundsResponse;
   }
 
+  setCoordGridItem(coord: CoordinateXY, item: A): void {
+    return this.setGridItem(coord.x, coord.y, item)
+  }
+  
   setGridItem(x: number, y: number, item: A): void {
     const gridItem = this.getGridItem(x, y)
     if (gridItem && gridItem !== this.outOfBoundsResponse) {
