@@ -3,21 +3,34 @@ import {
   getAllCardinalCoordinates,
   getAllCardinalCoordinatesIter,
 } from "@/util/grid-util";
+import { Queue } from "@/util/queue";
 import { CoordinateXY } from "@/util/types";
 import fs from "node:fs";
 
-const input = fs.readFileSync("./input-03.txt").toString();
+const input = fs.readFileSync("./input.txt").toString();
 
-type GridPlant = {
+class GridPlant {
   value: string;
-  regionId: string;
-  isBorder: boolean;
-  hasBeenAccounted: boolean;
-};
+  regionId: number = -1;
+  isBorder: boolean = false;
+  hasBeenAccounted: boolean = false;
+  coordinate: CoordinateXY;
+
+  constructor(value: string, coordinate: CoordinateXY) {
+    this.value = value;
+    this.coordinate = coordinate;
+  }
+}
+
+class RegionIdentifier {
+  regionIdx: number = 0;
+  constructor(v: number) {
+    this.regionIdx = v;
+  }
+}
 
 const mapGrid = new GridContainer<GridPlant, undefined>(undefined);
-
-const plantIndex = new Map<string, CoordinateXY[]>();
+const regionGrid = new GridContainer<RegionIdentifier, undefined>(undefined);
 
 const yRows = input.toString().split("\n");
 
@@ -25,130 +38,137 @@ mapGrid.setHeight(yRows.length);
 for (let y = 0; y < yRows.length; y++) {
   const xRow = yRows[y].split("");
 
-  for (let x = 0; x < xRow.length; x++) {
-    const plant = xRow[x];
-
-    const plantIndexVal = plantIndex.get(plant);
-    plantIndex.set(plant, [...(plantIndexVal ?? []), { x, y }]);
-  }
-
-  mapGrid.pushToGrid(
-    xRow.map((v) => {
-      return {
-        value: v,
-        regionId: `${v}:-1`,
-        isBorder: false,
-        hasBeenAccounted: false,
-      };
-    })
-  );
+  mapGrid.pushToGrid(xRow.map((v, x) => new GridPlant(v, { x, y })));
   mapGrid.setWidth(xRow.length);
 }
 
-type RegionMapVal = { area: number; perimeter: number };
-const regionMap = new Map<string, { area: number; perimeter: number }>();
-let regionExpanded = false;
-do {
-  for (const [plantType, coordinateList] of plantIndex.entries()) {
-    regionExpanded = false;
-    let regionIdx = 0;
-    // items that are sequential in the array will more than likely share a border,
-    // since they are likely be geographically close, because of the
-    // indexing logic used
-    for (const coordinate of coordinateList) {
-      const plantItem = mapGrid.getGridItem(coordinate.x, coordinate.y);
-      if (!plantItem) throw new Error("Something went wrong with our indexing");
+class RegionIndexer {
+  value: number = 0;
+  // returns the next regionIdx
+  incrementRegionIdx(): number {
+    this.value++;
 
-      const emptyRegionId = `${plantType}:-1`;
-      let regionId = `${plantType}:${regionIdx}`;
-
-      if (plantItem.regionId.split(":")[1] === "-1") {
-        plantItem.regionId = regionId;
-
-        mapGrid.setGridItem(coordinate.x, coordinate.y, plantItem);
-        regionIdx++;
-      } else {
-        regionId = plantItem.regionId;
-      }
-
-      const oldRegionMapVal = regionMap.get(regionId);
-
-      const emptyRegionMapVal: RegionMapVal = { area: 1, perimeter: 4 };
-
-      // exclude switching north and west tiles, we'll switch tiles east and south
-      const cardinalCoords = getAllCardinalCoordinatesIter(coordinate, [
-        "north",
-        "west",
-      ]);
-
-      let isBorder = false;
-
-      for (const cardinalCoord of cardinalCoords) {
-        const item = mapGrid.getCoordGridItem(cardinalCoord);
-        if (!item) continue;
-
-        if (item.value !== plantType) continue;
-        if (item.regionId !== emptyRegionId) continue;
-
-        const newItem: GridPlant = {
-          value: item.value,
-          regionId,
-          isBorder: false,
-          hasBeenAccounted: false,
-        };
-
-        mapGrid.setCoordGridItem(cardinalCoord, newItem);
-
-        regionExpanded = true;
-      }
-
-      const borderCheckCoords = getAllCardinalCoordinatesIter(coordinate);
-
-      for (const borderCheckCoord of borderCheckCoords) {
-        const item = mapGrid.getCoordGridItem(borderCheckCoord);
-        if (!item) continue;
-
-        if (item.regionId !== regionId) {
-          isBorder = true;
-        } else {
-          emptyRegionMapVal.perimeter -= 1;
-        }
-      }
-
-      const oldMapGridItem = mapGrid.getCoordGridItem(coordinate);
-
-      if(oldMapGridItem && !oldMapGridItem.hasBeenAccounted) {
-        if (oldRegionMapVal) {
-          emptyRegionMapVal.area += oldRegionMapVal.area;
-          emptyRegionMapVal.perimeter += oldRegionMapVal.perimeter;
-        }
-
-        regionMap.set(regionId, emptyRegionMapVal);
-      }
-
-      mapGrid.setCoordGridItem(coordinate, {
-        ...mapGrid.getCoordGridItem(coordinate)!,
-        isBorder,
-        hasBeenAccounted: true,
-      });
-    }
-    // regionExpanded will have some conditions that can set this to true and
-    // rerun all the logic in the do while until the region is fully expanded
+    return this.value;
   }
-} while (regionExpanded);
+}
 
-// a piece of a region that is on the border will have at least 1 piece
-// in its cardinal coordinates that is not in the same region as itself.
+regionGrid.setHeight(mapGrid.getHeight());
+regionGrid.setWidth(mapGrid.getWidth());
+
+for (let y = 0; y < regionGrid.getHeight(); y++) {
+  regionGrid.pushToGrid(
+    Array(regionGrid.getHeight()).fill(new RegionIdentifier(-1))
+  );
+}
+// regionGrid.pushToGrid(
+//   Array(regionGrid.getHeight()).fill(
+//     Array(regionGrid.getWidth()).fill(new RegionIdentifier(-1))
+//   )
+// );
+
+const regionIdx = new RegionIndexer();
+
+type RegionSize = number;
+type RegionPerimeter = number;
+type RegionCounterMapValue = {
+  regionSize: RegionSize;
+  regionPerimeter: RegionPerimeter;
+};
+
+const regionCounterMap = new Map<number, RegionCounterMapValue>();
+
+for (let y = 0; y < mapGrid.getHeight(); y++) {
+  for (let x = 0; x < mapGrid.getWidth(); x++) {
+    const regionIdentifier = regionGrid.getCoordGridItem({ x, y });
+
+    // we've already assigned a region to this coordinate.
+    if (regionIdentifier!.regionIdx !== -1) continue;
+
+    const regionId = regionIdx.incrementRegionIdx();
+
+    regionCounterMap.set(regionId, { regionSize: 0, regionPerimeter: 0 });
+
+    const mapPlant = mapGrid.getCoordGridItem({ x, y });
+
+    if (!mapPlant) throw new Error("We should havea map plant here");
+    const q = new Queue<GridPlant>();
+
+    addToQueue(
+      q,
+      mapPlant.value,
+      mapPlant,
+      regionId,
+      regionGrid,
+      regionCounterMap
+    );
+
+    while (q.size()) {
+      const plant = q.dequeue();
+
+      const cardinals = getAllCardinalCoordinatesIter(
+        plant!.coordinate
+      ).flatMap((coord) => mapGrid.getCoordGridItem(coord) );
+      for (const cardinal of cardinals) {
+        addToQueue(
+          q,
+          mapPlant.value,
+          cardinal,
+          regionId,
+          regionGrid,
+          regionCounterMap
+        );
+      }
+    }
+  }
+}
+
+function addToQueue(
+  q: Queue<GridPlant>,
+  plantType: string,
+  gridPlant: GridPlant | undefined,
+  currentRegion: number,
+  regionTileMap: GridContainer<RegionIdentifier, undefined>,
+  regionCounterMap: Map<number, RegionCounterMapValue>
+) {
+  const currRegionCounterMapVal = regionCounterMap.get(currentRegion);
+  if(!gridPlant) {
+    // we're out of bounds, add +1 to perimeter and thats it
+    regionCounterMap.set(currentRegion, {
+      regionSize: currRegionCounterMapVal!.regionSize,
+      regionPerimeter: (currRegionCounterMapVal!.regionPerimeter ?? 0) + 1,
+    });
+    return;
+  }
+  const regionPlant = regionTileMap.getCoordGridItem(gridPlant.coordinate);
+
+  if (gridPlant.value === plantType && regionPlant!.regionIdx === -1) {
+    regionTileMap.setCoordGridItem(
+      gridPlant.coordinate,
+      new RegionIdentifier(currentRegion)
+    );
+    q.enqueue(gridPlant);
+
+    regionCounterMap.set(currentRegion, {
+      regionSize: (currRegionCounterMapVal!.regionSize ?? 0) + 1,
+      regionPerimeter: currRegionCounterMapVal!.regionPerimeter,
+    });
+  } else if (gridPlant.value !== plantType) {
+    regionCounterMap.set(currentRegion, {
+      regionSize: currRegionCounterMapVal!.regionSize,
+      regionPerimeter: (currRegionCounterMapVal!.regionPerimeter ?? 0) + 1,
+    });
+  }
+}
 
 let sum = 0;
 
-for(const [key, val] of regionMap) {
-  sum += val.area * val.perimeter;
+for (const [region, regionCount] of regionCounterMap.entries()) {
+  sum += regionCount.regionSize * regionCount.regionPerimeter;
 }
 
 console.log(
   "we were supposed to have some type of answer here... still working on that",
   // regionMap,
   // mapGrid,
-  sum,
+  sum
 );

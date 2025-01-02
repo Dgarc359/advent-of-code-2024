@@ -78,4 +78,12 @@ export class GridContainer<A, T> {
   logCurrentGrid() {
     console.log(this.grid);
   }
+
+  getWidth() {
+    return this.xLength;
+  }
+
+  getHeight() {
+    return this.yLength;
+  }
 }
