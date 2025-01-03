@@ -57,3 +57,7 @@ function getCardinalCoordinate(
       return { x: coord.x + 1, y: coord.y };
   }
 }
+
+export function coordinateXYToString(coord: CoordinateXY) {
+  return `${coord.x}:${coord.y}`
+}
