@@ -1,6 +1,5 @@
 
-
-
+// FIFO
 export class Queue<T> {
   internalStorage: T[] = [];
 
