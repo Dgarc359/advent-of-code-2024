@@ -83,8 +83,17 @@ export class GridContainer<A, T> {
     console.log(strToLog)
   }
 
-  saveMapGridToFile(path: string) {
-    fs.writeFileSync(path, this.grid.map((yRows, i) => yRows.join('')).join('\n'))
+  // callback can be given when it's unclear how to stringify whatever's being
+  // contained in the grid container
+  // useful when storing objects
+  // the whole grid will be given as as argument and you're expected
+  // to declare how that grid will look
+  saveMapGridToFile(path: string, callback?: (grid: A[][]) => string) {
+    if(callback) {
+      fs.writeFileSync(path, callback(this.grid))
+    } else {
+      fs.writeFileSync(path, this.grid.map((yRows, i) => yRows.join('')).join('\n'))
+    }
   }
 
   getWidth() {
