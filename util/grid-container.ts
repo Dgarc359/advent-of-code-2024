@@ -1,5 +1,6 @@
 import { CoordinateXY } from "./types";
 
+import fs from 'node:fs';
 /**
  * A class representing a grid container that holds a 2D array of items.
  *
@@ -76,7 +77,14 @@ export class GridContainer<A, T> {
 
 
   logCurrentGrid() {
-    console.log(this.grid);
+    console.clear();
+    // const xColumnHeaders = `   ` + Array(this.xLength).fill(1).map((val, i) => i).join('') + '\n'
+    const strToLog = this.grid.map((yRows, i) => `${i} - ` + yRows.join('')).join('\n')
+    console.log(strToLog)
+  }
+
+  saveMapGridToFile(path: string) {
+    fs.writeFileSync(path, this.grid.map((yRows, i) => yRows.join('')).join('\n'))
   }
 
   getWidth() {
