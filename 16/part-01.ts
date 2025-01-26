@@ -8,6 +8,43 @@ import { sleep } from "@/util/time";
 import { CoordinateXY } from "@/util/types";
 import fs from "node:fs";
 
+type CardinalDegrees = 0 | 90 | 180 | 270;
+class Node {
+  // reference impl: https://en.wikipedia.org/wiki/Dijkstra's_algorithm#Algorithm
+  // this should also basically be our 'cost' for the purpose of this
+  // implementation
+  distanceFromStartValue: number = Infinity;
+  coord: CoordinateXY;
+  previousNode?: Node;
+  facingDir?: CardinalDegrees;
+
+  constructor(coord: CoordinateXY) {
+    this.coord = coord;
+  }
+
+  setDistance(n: number) {
+    this.distanceFromStartValue = n;
+  }
+
+  getDistance() {
+    return this.distanceFromStartValue;
+  }
+
+  setFacingDir(dir: CardinalDegrees) {
+    this.facingDir = dir;
+  }
+  getFacingDir() {
+    return this.facingDir;
+  }
+
+  setPreviousNode(node: Node) {
+    this.previousNode = node;
+  }
+  getPreviousNode() {
+    return this.previousNode;
+  }
+}
+
 type DegreesToCoordinateVector = {
   // north
   0: { x: 1; y: -1 };
@@ -37,15 +74,17 @@ function turnDegreeClockwise90Degrees(
 
 const input = fs.readFileSync("./input.txt").toString().split("\n");
 const mapGrid = new GridContainer<string, undefined>(undefined);
-const secondaryMapGrid = new GridContainer<Path, undefined>(undefined);
+const unvisitedSet = new GridContainer<Node, undefined>(undefined);
 
 let startCoordinates: CoordinateXY = undefined!;
 let endCoordinates: CoordinateXY = undefined!;
 
+const q = new Queue<Node>();
 mapGrid.setHeight(input.length);
-secondaryMapGrid.setHeight(input.length);
+unvisitedSet.setHeight(input.length);
 for (let y = 0; y < input.length; y++) {
   const xRow = input[y].split("");
+
   for (let x = 0; x < xRow.length; x++) {
     // we'll want to find the start and end coordinates
     const xChar = xRow[x];
@@ -59,264 +98,177 @@ for (let y = 0; y < input.length; y++) {
   mapGrid.pushToGrid(xRow);
   mapGrid.setWidth(xRow.length);
 
-  // Is this needed??
-  secondaryMapGrid.pushToGrid(Array(xRow.length).fill("A"));
-  secondaryMapGrid.setWidth(xRow.length);
+  const newXRow = Array(xRow.length)
+    .fill(undefined)
+    .map((v, x) => {
+      const node = new Node({ x, y });
+      return node;
+    });
+
+  unvisitedSet.pushToGrid(newXRow);
+  unvisitedSet.setWidth(xRow.length);
 }
 
-type PathSource = "start" | "end";
-class Path {
-  currentCoord: CoordinateXY;
-  currentCost: number;
-  currentFacingDirection: 0 | 90 | 180 | 270;
-
-  // directions will be an array
-  // where the strings are colon delimited X:Y
-  // to tell us how to reverse this path
-  directions: string[];
-
-  // the path can be starting
-  pathSource: PathSource;
-
-  constructor(
-    coord: CoordinateXY,
-    cost: number,
-    currDir: 0 | 90 | 180 | 270,
-    pathSource: PathSource = "start",
-    sourcePath?: Path
-  ) {
-    this.currentCoord = coord;
-    this.currentCost = cost;
-    this.currentFacingDirection = currDir;
-    this.pathSource = pathSource;
-    if (sourcePath) {
-      this.directions = [...sourcePath.directions];
-    } else {
-      this.directions = [];
-    }
-
-    this.addCoordToDirections(coord);
-  }
-
-  mapCurrentFacingDirToChar() {
-    switch (this.currentFacingDirection) {
-      case 0:
-        return "^";
-      case 90:
-        return ">";
-      case 180:
-        return "v";
-      case 270:
-        return "<";
-    }
-  }
-
-  logCurPath() {
-    console.log(
-      `curr cord x: ${this.currentCoord.x} y: ${
-        this.currentCoord.y
-      } dir: ${this.mapCurrentFacingDirToChar()}`
-    );
-  }
-
-  addCoordToDirections(coord: CoordinateXY) {
-    this.directions.push(`${coord.x}:${coord.y}`);
-  }
-}
-
-const completedPathsArr: Path[] = [];
-
-async function completePaths(
-  currentCost: number,
-  currentSteps: number, // may not be necessary
-  currentCoordinate: CoordinateXY,
-  currentFacingDirection: 0 | 90 | 180 | 270,
-  mapGrid: GridContainer<string, undefined>,
-  completedPaths: Path[],
-
-  /** OPTIONAL */
-  cheapestPath: number = Infinity
-) {
+async function traverseUnvisitedSet() {
   const tdcw = turnDegreeClockwise90Degrees;
-  const currItem = mapGrid.getCoordGridItem(currentCoordinate);
+  // const startingNode = unvisitedSet.getCoordGridItem(startCoordinates);
+  const startingNode = unvisitedSet.getCoordGridItem(startCoordinates);
+  if (!startingNode) {
+    throw new Error("??? NO STARTING NODE");
+  }
 
-  const currPathCost = new Path(
-    currentCoordinate,
-    currentCost,
-    currentFacingDirection,
-    "start"
-  );
+  // set starting node distance to 0
+  startingNode.setDistance(0);
+  startingNode.setFacingDir(90);
+  unvisitedSet.setCoordGridItem(startCoordinates, startingNode);
 
-  const endPathCost = new Path(
-    endCoordinates,
-    currentCost,
-    // turn the current facing direction 180
-    tdcw(tdcw(currentFacingDirection)),
-    "end"
-  );
+  unvisitedSet.forEach((node) => {
+    const mapGridVal = mapGrid.getCoordGridItem(node.coord)!;
 
-  const movementQueue = new Queue<Path>();
-  addToQueue(movementQueue, currPathCost, mapGrid, completedPaths);
-  addToQueue(movementQueue, endPathCost, mapGrid, completedPaths);
+    // don't queue up the walls... for visitation
+    if (mapGridVal === "#") return;
+    q.enqueue(node);
+  });
 
   let i = 0;
-  while (movementQueue.size()) {
-    const currPath = movementQueue.dequeue();
-    if (
-      currPath === undefined ||
-      mapGrid.getCoordGridItem(currPath.currentCoord) === undefined ||
-      mapGrid.getCoordGridItem(currPath.currentCoord)! === "X"
-    )
-      continue;
-
-    // await sleep(1000);
-    i++;
-    // no turning around!!
-
-    // if (i % 1000 === 0) {
-    mapGrid.saveMapGridToFile("./checkpoint.txt");
-    // }
-
-    // traverse the thing
-
-    // currPath.logCurPath();
-    // mapGrid.logCurrentGrid();
+  while (q.size()) {
     console.log(`iter: ${i}`);
-
-    const cardinals = getAllCardinalCoordinates(currPath.currentCoord);
-    // no cost to keep going in the same direction
-    const currDir =
-      cardinals[DegreeToCardinal[currPath.currentFacingDirection]];
-    const straightPathCost = currPath.currentCost + 1;
-    const straightPath = addToQueue(
-      movementQueue,
-      new Path(
-        currDir,
-        straightPathCost,
-        currPath.currentFacingDirection,
-        currPath.pathSource,
-        currPath
-      ),
-      mapGrid,
-      completedPaths
-    );
-
-    // if any path is not undefined, then we've found the end, going any other direction is weird.
-    if (straightPath !== undefined) {
-      continue;
+    const currentNode = findLowestNodeDistanceCostInQueue(q);
+    if (!currentNode) {
+      throw Error("???");
     }
 
-    const rightFacingDir = turnDegreeClockwise90Degrees(
-      currPath.currentFacingDirection
-    );
-    const rightTurnCoord = cardinals[DegreeToCardinal[rightFacingDir]];
-    const rightPathCost = currPath.currentCost + 1001;
-    const rightPath = addToQueue(
-      movementQueue,
-      new Path(
-        rightTurnCoord,
-        rightPathCost,
-        rightFacingDir,
-        currPath.pathSource,
-        currPath
-      ),
-      mapGrid,
-      completedPaths
-    );
-
-    if (rightPath !== undefined) {
-      continue;
+    if (
+      currentNode.coord.x === endCoordinates.x &&
+      currentNode.coord.y === endCoordinates.y
+    ) {
+      // we found the end...
+      // reverse iteration to find the shortest path
+      console.log("we found the exit gang");
+      console.log(currentNode.getDistance())
+      break;
     }
 
-    // turn it 3 times... too sleepy to think of a better way to do this right now,
-    // better than subtracting and maybe having to deal with negative numbers right now
-    const leftFacingDir = tdcw(tdcw(tdcw(currPath.currentFacingDirection)));
-    const leftTurnCoord = cardinals[DegreeToCardinal[leftFacingDir]];
-    const leftPathCost = currPath.currentCost + 1001;
-    const leftPath = addToQueue(
-      movementQueue,
-      new Path(
-        leftTurnCoord,
-        leftPathCost,
-        leftFacingDir,
-        currPath.pathSource,
-        currPath
-      ),
-      mapGrid,
-      completedPaths
+    if (currentNode.getFacingDir() === undefined) {
+      throw new Error(
+        "WE DID SOMETHING WRONG AND HAVE NO FACING DIR, BAD ORDER OF OPERATIONS"
+      );
+    }
+
+    const cardinals = getAllCardinalCoordinates(currentNode.coord);
+
+    // get straight ahead, which has no cost
+    const straightDir =
+      cardinals[
+        DegreeToCardinal[currentNode.getFacingDir() as CardinalDegrees]
+      ];
+    doOperationOnCardinal(
+      currentNode,
+      straightDir,
+      currentNode.getFacingDir() as CardinalDegrees,
+      1,
+      q
     );
 
-    if (leftPath !== undefined) {
-      continue;
-    }
+    const rightFacingDegreeValue = tdcw(
+      currentNode.getFacingDir() as CardinalDegrees
+    );
+    const rightDir = cardinals[DegreeToCardinal[rightFacingDegreeValue]];
 
-    if (currPath.pathSource === "start") {
-      mapGrid.setCoordGridItem(currPath.currentCoord, "X");
-    } else {
-      mapGrid.setCoordGridItem(currPath.currentCoord, "Z");
-      secondaryMapGrid.setCoordGridItem(currPath.currentCoord, currPath);
-    }
+    doOperationOnCardinal(
+      currentNode,
+      rightDir,
+      rightFacingDegreeValue,
+      1001,
+      q
+    );
+
+    const leftDegreeVal = tdcw(
+      tdcw(tdcw(currentNode.getFacingDir() as CardinalDegrees))
+    );
+    const leftDir = cardinals[DegreeToCardinal[leftDegreeVal]];
+    doOperationOnCardinal(currentNode, leftDir, leftDegreeVal, 1001, q);
+
+    i++;
+    await sleep(10);
   }
 }
 
-function addToQueue(
-  q: Queue<Path>,
-  path: Path,
-  mapGrid: GridContainer<string, undefined>,
-  completedPaths: Path[]
+function doOperationOnCardinal(
+  currentNode: Node,
+  coord: CoordinateXY,
+  newFacingDir: CardinalDegrees,
+  cost: number,
+  q: Queue<Node>
 ) {
-  const currItem = mapGrid.getCoordGridItem(path.currentCoord);
+  // const node = unvisitedSet.getCoordGridItem(coord);
+  const result = nodeIdxInQueue(coord, q);
+  // check if node is actually in the queue and in unvisited set gridcontainer
 
-  if (
-    path.pathSource === "start" &&
-    (currItem === "E" ||
-      (path.currentCoord.x === endCoordinates.x &&
-        path.currentCoord.y === endCoordinates.y))
-  ) {
-    // we found the end, woohoo!
-    console.log("we found the end!");
-    completedPaths.push(path);
-    return path;
+  if (result.node === undefined || result.idx === undefined) {
+    // result isn't in queue
+    return;
   }
 
-  if (currItem === undefined || currItem === "X" || currItem === "#") return;
+  const distanceCost = currentNode.getDistance() + cost;
 
-  // Z will be what the end path assigns
-  if (currItem === "Z" && path.pathSource !== "end") {
-    const zGridPath: Path = secondaryMapGrid.getCoordGridItem(
-      path.currentCoord
-    )!;
-    const newPath = new Path(
-      path.currentCoord,
-      zGridPath.currentCost + path.currentCost,
-      path.currentFacingDirection,
-      path.pathSource,
-      path
-    )
-    completedPaths.push(
-      newPath
-    );
-    return newPath
-  } else {
-    q.enqueue(path);
+  // if calculated distance cost in less than current cost of item in q
+  // then edit the item in the queue
+  if (distanceCost < result.node.getDistance()) {
+    const newNode = new Node(coord);
+    newNode.setFacingDir(newFacingDir);
+    newNode.setDistance(distanceCost);
+    newNode.setPreviousNode(currentNode);
+    q.replace(result.idx, newNode);
   }
+
+  // this is just to visualize what's going on
+  mapGrid.setCoordGridItem(coord, "X");
+  mapGrid.saveMapGridToFile("checkpoint.txt");
 }
 
-function findCheapestPathFromCompletedPaths(completedPaths: Path[]) {
-  let cheapest = undefined;
+function nodeIdxInQueue(
+  targetNode: CoordinateXY,
+  q: Queue<Node>
+): { idx?: number; node?: Node } {
+  let isStillInQueue = undefined;
+  let nodeInQueue = undefined;
 
-  for (const path of completedPaths) {
-    if (cheapest === undefined) {
-      cheapest = path;
-      continue;
+  q.forEach((node, i) => {
+    if (node.coord.x === targetNode.x && node.coord.y === targetNode.y) {
+      isStillInQueue = i;
+      nodeInQueue = node;
     }
+  });
 
-    if (path.currentCost <= cheapest.currentCost) {
-      cheapest = path;
-    }
+  return {
+    idx: isStillInQueue,
+    node: nodeInQueue,
+  };
+}
+
+function findLowestNodeDistanceCostInQueue(q: Queue<Node>) {
+  let lowest: Node = undefined!;
+  let lowestIdx: number = undefined!;
+
+  if (!q.size()) {
+    return undefined;
   }
 
-  return cheapest;
+  q.forEach((node, i) => {
+    if (lowest === undefined) {
+      lowest = node;
+      lowestIdx = i;
+      return;
+    }
+
+    if (node.getDistance() <= lowest.getDistance()) {
+      lowest = node;
+      lowestIdx = i;
+    }
+  });
+
+  return q.dequeue(lowestIdx);
 }
 
 /**
@@ -329,17 +281,6 @@ function findCheapestPathFromCompletedPaths(completedPaths: Path[]) {
 
 {
   (async () => {
-    // we're doing some sleeps during the iteration for visualization purposes
-    await completePaths(0, 0, startCoordinates, 90, mapGrid, completedPathsArr);
-
-    const cheapestPath = findCheapestPathFromCompletedPaths(completedPathsArr);
-
-    if (cheapestPath === undefined) {
-      console.log("couldnt find a cheap path");
-      return;
-    }
-    console.log(
-      `finished pathing, cheapest path cost: ${cheapestPath.currentCost}`
-    );
+    await traverseUnvisitedSet();
   })();
 }

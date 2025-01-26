@@ -94,4 +94,12 @@ export class GridContainer<A, T> {
   getHeight() {
     return this.yLength;
   }
+
+  forEach(callback: (el: A, i: number, arr: A[][]) => void) {
+    this.grid.forEach((row, y, overallGrid) => {
+      row.forEach((el, x, yRow) => {
+        callback(el, y + x, this.grid)
+      })
+    })
+  }
 }

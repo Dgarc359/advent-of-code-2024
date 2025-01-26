@@ -15,12 +15,26 @@ export class Queue<T> {
   }
 
   // remove an item from the queue, return the removed item, or undefined if no items in queue
-  dequeue(): T | undefined {
+  dequeue(idx?: number): T | undefined {
+    if(idx) {
+      return this.internalStorage.splice(idx, 1)[0]
+    }
     return this.internalStorage.shift();
+  }
+
+  replace(idx: number, el: T) {
+    const old = this.internalStorage[idx]
+    this.internalStorage[idx] = el
+
+    return old;
   }
 
   // return size of queue
   size(): number {
     return this.internalStorage.length;
+  }
+
+  forEach(callbackfn: (value: T, index: number, array: T[]) => void, thisArg?: any) {
+    return this.internalStorage.forEach(callbackfn, thisArg)
   }
 }
