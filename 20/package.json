@@ -1,0 +1,9 @@
+{
+  "name": "20",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "yarn part-01 && yarn part-02",
+    "part-01": "yarn ts-node -r tsconfig-paths/register part-01.ts",
+    "part-02": "yarn ts-node -r tsconfig-paths/register part-02.ts"
+  }
+}
