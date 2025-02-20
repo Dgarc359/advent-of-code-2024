@@ -1,5 +1,5 @@
 import { GridContainer } from '@/util/grid-container'
-import { getAllCardinalCoordinates, getAllCardinalCoordinatesIter } from '@/util/grid-util';
+import { getAllCardinalCoordinates, getAllCardinalCoordinatesIter, getAllCardinalCoordinatesIterWithOffset, getAllOrdinalCoordinates } from '@/util/grid-util';
 import { Queue } from '@/util/queue'
 import { CoordinateXY } from '@/util/types'
 import fs from 'node:fs'
@@ -79,7 +79,6 @@ function saveMapToFile(filename: string): void {
 saveMapToFile('checkpoint-01.txt')
 
 function findShortestPathToEnd(startingPos: CoordinateXY, endPos: CoordinateXY, q: Queue<Node>, mapGrid: GridContainer<Node, undefined>) {
-
   while(q.size()) {
     const [currentNode, nodeIdx] = findLowestCostNodeInQueue(q);
 
@@ -90,6 +89,7 @@ function findShortestPathToEnd(startingPos: CoordinateXY, endPos: CoordinateXY, 
     if(currentNode.coord.x === endPos.x && currentNode.coord.y === endPos.y) {
 
       console.log("WE FOUND DA END AGAIN, path cost:", currentNode.getCost())
+      return currentNode;
       break;
     }
 
@@ -98,7 +98,6 @@ function findShortestPathToEnd(startingPos: CoordinateXY, endPos: CoordinateXY, 
 
     for (const cardinal of cardinalsStillInQueue) {
       const calculatedCostForMoveToCardinal = currentNode.cost + 1;
-      // const node = mapGrid.getCoordGridItem(cardinal)!;
       const [node, cardinalIdx] = getNodeFromQueue(cardinal, q);
       if(node.value === '#') {
         continue;
@@ -166,4 +165,104 @@ function getNodeFromQueue(coord: CoordinateXY, q: Queue<Node>): [Node, number] {
 }
 
 
-findShortestPathToEnd(startNode.coord, endNode.coord, q, mapGrid)
+const shortestCostPath = findShortestPathToEnd(startNode.coord, endNode.coord, q, mapGrid)
+// after finding shortest path, traverse the path, and find the cost of savings
+// if we were to cut through the walls... something like this. We might need
+// to modify the shortest path algo so that we can see the cost saving of cutting
+// through a wall.
+// We could do it while traversing the path, going in with the constraint
+// that the path is linear / no branches
+
+// 2-19
+// we can find the shortest path, then we can know the cost of a certain
+// node to the end of the path
+// with this, we can traverse the path from start to end again and
+// check a specific set of tiles that are always going to be accessible as a
+// 'cheat'
+
+// a cheat will always be 2 moves, because at the end of move 2,
+// we must be back on a tile that isn't a wall.
+
+if (shortestCostPath === undefined) {
+  throw new Error("We somehow didnt find a shortest path... weird")
+}
+
+class NodeCheatSavingsMap extends Map<number, number> {
+  addToCheatSavings(savings: number) {
+    const curSavings = this.get(savings)
+    this.set(savings, (curSavings === undefined ? 0 : curSavings) + 1)
+    console.log('adding to cheat savings')
+  }
+}
+
+function getCurrentNodeCheatSavings(node: Node, mapGrid: GridContainer<Node, undefined>, nodeCheatSavings: NodeCheatSavingsMap): unknown {
+  // in the example below is any target, `t`, that a Node, `N`, can potentially cheat to
+  //  - - t - -
+  //  - t - t -
+  //  t - N - t
+  //  - t - t -
+  //  - - t - -
+
+  // grab all possible targets
+  const cardinalTargets = getAllCardinalCoordinatesIterWithOffset(node.coord, undefined, 2);
+  const ordinalTargets = getAllOrdinalCoordinates(node.coord);
+  const targets = [...cardinalTargets, ...ordinalTargets]
+
+  // check possible targets in mapgrid to see if cheating from curr node (pathing from end)
+  // cost to target node >= 2
+  // I think the minimum time we can save by cheating / skipping a block is
+  // 2 'picoseconds'
+  // consider the case where there is only 1 tile that blocks / can be skipped
+  // the only skip you would do is straight through it
+  // which would save you two 'seconds' since the path to go around costs 4
+  // but the path to go through costs two
+
+  // anyways. the next time you look at this, you need to go through all the
+  // targets and see how much they cost. If they result in savings, add it to 
+  // node cheat savings map
+
+  for (const target of targets) {
+    const nodeTarget = mapGrid.getCoordGridItem(target);
+    if (nodeTarget === undefined) {
+      console.log('TODO')
+      continue
+    }
+
+    const savings = node.cost - nodeTarget.cost
+
+    if (savings >= 2) {
+      nodeCheatSavings.addToCheatSavings(savings)
+    }
+  }
+
+  return {}
+}
+
+
+// now we follow the path backwards.
+// while we do that, we can see how much time we can save on specific cheats?
+const pathQ = new Queue<Node>([shortestCostPath]);
+const nodeCheatTotalSavings = new NodeCheatSavingsMap();
+
+// init q with our starting point to kick off the process
+while(pathQ.size()){
+  const currNode = pathQ.dequeue()
+  if(currNode === undefined) {
+    console.log("We ran out of nodes in the q")
+    break;
+  }
+
+  getCurrentNodeCheatSavings(currNode, mapGrid, nodeCheatTotalSavings)
+
+  pathQ.enqueue(currNode.getPrevious())
+}
+
+// at this point, nodeCheatTotalSavings should have all the positive savings
+// possible in our traversal of the map
+
+// we can just figure out a nice way to tally up the results and
+// log it out
+
+
+
+
