@@ -51,3 +51,18 @@ const qTwo = new Queue([
 console.log("node one equals node two", nodeOne === nodeTwo)
 
 console.log('node one equals node one copy', nodeOne === nodeOneCopy)
+
+
+/************************************************************************* */
+
+const day20playgroundInput = fs.readFileSync('input-day20-01.txt').toString().split("\n")
+
+let day20PlaygroundSum = 0;
+for (const row of day20playgroundInput) {
+  const [savings, occurrences] = row.split("=>").map(v => Number(v.trim()).valueOf())
+  day20PlaygroundSum += occurrences;
+}
+
+
+console.log('day 20 playgroudn occurneces', day20PlaygroundSum)
+

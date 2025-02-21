@@ -50,9 +50,10 @@ export function getAllCardinalCoordinatesIterWithOffset(
     "north", "south", "east", "west"
   ]
 
-  for (const cardinal in cardinals) {
+  for (const cardinal of cardinals) {
     if (!excludeCoord.includes(cardinal as Cardinals)) {
-      coordList.push(getCardinalCoordinate(coord, cardinal as Cardinals, offset))
+      const coordinate = getCardinalCoordinate(coord, cardinal as Cardinals, offset)
+      coordList.push(coordinate)
     }
   }
 

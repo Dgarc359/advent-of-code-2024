@@ -1,6 +1,6 @@
 import { CoordinateXY } from "./types";
 
-import fs from 'node:fs';
+import fs from "node:fs";
 /**
  * A class representing a grid container that holds a 2D array of items.
  *
@@ -21,7 +21,7 @@ export class GridContainer<A, T> {
 
   setHeight(yLength: number) {
     if (this.yLength) {
-      this.yLength = Math.max(yLength, this.yLength)
+      this.yLength = Math.max(yLength, this.yLength);
     } else {
       this.yLength = yLength;
     }
@@ -61,11 +61,11 @@ export class GridContainer<A, T> {
   }
 
   setCoordGridItem(coord: CoordinateXY, item: A): void {
-    return this.setGridItem(coord.x, coord.y, item)
+    return this.setGridItem(coord.x, coord.y, item);
   }
-  
+
   setGridItem(x: number, y: number, item: A): void {
-    const gridItem = this.getGridItem(x, y)
+    const gridItem = this.getGridItem(x, y);
     if (gridItem && gridItem !== this.outOfBoundsResponse) {
       this.grid[y][x] = item;
     }
@@ -75,12 +75,20 @@ export class GridContainer<A, T> {
     return this.grid;
   }
 
-
-  logCurrentGrid() {
+  // this currently assumes that each item is a STRING
+  logCurrentGrid(
+    stringifyForEachRow?: (row: A[], i: number, grid: A[][]) => string
+  ) {
     console.clear();
     // const xColumnHeaders = `   ` + Array(this.xLength).fill(1).map((val, i) => i).join('') + '\n'
-    const strToLog = this.grid.map((yRows, i) => `${i} - ` + yRows.join('')).join('\n')
-    console.log(strToLog)
+    const strToLog = this.grid
+      .map((yRows, i, g) =>
+        stringifyForEachRow
+          ? stringifyForEachRow(yRows, i, g)
+          : `${i} - ` + yRows.join("")
+      )
+      .join("\n");
+    console.log(strToLog);
   }
 
   // callback can be given when it's unclear how to stringify whatever's being
@@ -89,10 +97,13 @@ export class GridContainer<A, T> {
   // the whole grid will be given as as argument and you're expected
   // to declare how that grid will look
   saveMapGridToFile(path: string, callback?: (grid: A[][]) => string) {
-    if(callback) {
-      fs.writeFileSync(path, callback(this.grid))
+    if (callback) {
+      fs.writeFileSync(path, callback(this.grid));
     } else {
-      fs.writeFileSync(path, this.grid.map((yRows, i) => yRows.join('')).join('\n'))
+      fs.writeFileSync(
+        path,
+        this.grid.map((yRows, i) => yRows.join("")).join("\n")
+      );
     }
   }
 
@@ -107,8 +118,8 @@ export class GridContainer<A, T> {
   forEach(callback: (el: A, i: number, arr: A[][]) => void) {
     this.grid.forEach((row, y, overallGrid) => {
       row.forEach((el, x, yRow) => {
-        callback(el, y + x, this.grid)
-      })
-    })
+        callback(el, y + x, this.grid);
+      });
+    });
   }
 }
