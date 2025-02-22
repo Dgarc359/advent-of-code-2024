@@ -125,8 +125,8 @@ function getNodeFromQueue(coord: CoordinateXY, q: Queue<Node>): [Node, number] {
 
 
 function getPrecomputedShortestPath(startingNode: Node, targetNode: Node, cache: Map<string, Node>) {
-  const mapKey = `${startingNode.coord.x},${startingNode.coord.y},${targetNode.coord.x},${targetNode.coord.y}`;
-  return cache.get(mapKey)
+  const cacheKey = generateCacheKey(startingNode, targetNode);
+  return cache.get(cacheKey)
 }
 
 
@@ -152,7 +152,7 @@ function findShortestPath(
     return precomputedPath;
   }
 
-  // create a copy of whatever grid container is being used to avoid side effects
+  // // create a copy of whatever grid container is being used to avoid side effects
   const map = new GridContainer<Node, undefined>(undefined).fromGridContainer(mapGrid);
 
   const grid = map.getInnerGrid().flat()
@@ -178,7 +178,7 @@ function findShortestPath(
     assert(currentNode.value !== undefined, "We should never have a node with an undefined value in the queue")
 
     if (currentNode.coord.x === targetNode.coord.x && currentNode.coord.y === targetNode.coord.y) {
-      console.log("WE FOUND DA END AGAIN, path cost:", currentNode.getCost());
+      // console.log("WE FOUND DA END AGAIN, path cost:", currentNode.getCost());
       return currentNode;
     }
 
@@ -206,6 +206,22 @@ function findShortestPath(
 
     map.setCoordGridItem(currentNode.coord, currentNode);
   }
+
+  // return map.getCoordGridItem(targetNode.coord);
+}
+
+function generateCacheKey(a: Node, b: Node) {
+  let smallerNode: Node = undefined!
+  let biggerNode: Node = undefined!
+  if (a.coord.x < b.coord.x) {
+    smallerNode = a;
+    biggerNode = b;
+  } else {
+    smallerNode = b;
+    biggerNode = a;
+  }
+
+  return `${smallerNode.value}::${biggerNode.value}`;
 }
 
 function addShortestPathToCache(
@@ -214,18 +230,8 @@ function addShortestPathToCache(
   shortestPath: Node,
   cache: Map<string, Node>
 ) {
-  let smallerNode: Node = undefined!
-  let biggerNode: Node = undefined!
-  if (startingNode.coord.x < targetNode.coord.x) {
-    smallerNode = startingNode;
-    biggerNode = targetNode;
-  } else {
-    smallerNode = targetNode;
-    biggerNode = startingNode;
-  }
-
-  const mapKey = `${smallerNode.coord.x},${smallerNode.coord.y},${biggerNode.coord.x},${biggerNode.coord.y}`;
-  cache.set(mapKey, shortestPath);
+  const cacheKey = generateCacheKey(startingNode, targetNode);
+  cache.set(cacheKey, shortestPath);
 }
 
 function getDirectionalInstruction(
@@ -249,12 +255,15 @@ function getDirectionalInstruction(
 
 
 function constructPathFromNode(node: Node): string[] {
-  const path: string[] = [];
+  // we want A to be our last instruction for a specific path
+  const path: string[] = ["A"];
 
   let currentNode: Node = node;
 
   while (currentNode.getPrevious()) {
-    path.push(getDirectionalInstruction(currentNode.getPrevious(), currentNode));
+    const directionalInstruction = getDirectionalInstruction(currentNode.getPrevious(), currentNode)
+
+    path.push(directionalInstruction);
     currentNode = currentNode.getPrevious();
   }
 
@@ -268,6 +277,7 @@ function getShortestPathToCurrentInstruction(
   grid: GridContainer<Node, undefined>,
   cache: Map<string, Node>
 ) {
+  const gridCopy = new GridContainer<Node, undefined>(undefined).fromGridContainer(grid);
   const startingIdx = grid.indexOf(startingInstruction);
   const targetIdx = grid.indexOf(targetInstruction);
 
@@ -275,17 +285,18 @@ function getShortestPathToCurrentInstruction(
     throw new Error(`trying to target an untargettable instruction ${startingInstruction} ${targetInstruction}`)
   }
 
-  const startingNode = grid.getCoordGridItem(startingIdx!)
-  const targetNode = grid.getCoordGridItem(targetIdx!)
+  const startingNode = gridCopy.getCoordGridItem(startingIdx!)
+  const targetNode = gridCopy.getCoordGridItem(targetIdx!)
 
   if (!startingNode || !targetNode) {
     throw new Error("trying to target an untargettable instruction")
   }
+  startingNode.setCost(0)
 
   // now find shortest path, remember to avoid undefined values for the path
   // ENTIRELY
 
-  const shortestCostNode = findShortestPath(startingNode, targetNode, grid, cache)
+  const shortestCostNode = findShortestPath(startingNode, targetNode, gridCopy, cache)
 
   if (shortestCostNode === undefined) {
     throw new Error("We couldn't find a shortest path. We should be able to do that")
@@ -331,6 +342,8 @@ function getButtonPresses(
     // we're going to push in 'instructions to input instruction to input shortest path'
     // into the buttonpresses array
     buttonPresses.push()
+
+    previousInstruction = instruction
   }
 
   return buttonPresses;
