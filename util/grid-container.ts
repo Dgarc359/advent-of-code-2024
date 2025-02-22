@@ -21,6 +21,15 @@ export class GridContainer<A, T> {
     this.outOfBoundsResponse = outOfBoundsResponse;
   }
 
+  fromGridContainer(gridContainer: GridContainer<A, T>) {
+    this.grid = gridContainer.getInnerGrid();
+    this.yLength = gridContainer.getHeight();
+    this.xLength = gridContainer.getWidth();
+    this.outOfBoundsResponse = gridContainer.outOfBoundsResponse;
+    this.index = gridContainer.index;
+    return this;
+  }
+
   setHeight(yLength: number) {
     if (this.yLength) {
       this.yLength = Math.max(yLength, this.yLength);
@@ -68,6 +77,10 @@ export class GridContainer<A, T> {
   // for later retrieval
   indexOf(key: unknown) {
     return this.index.get(key)
+  }
+
+  indexItem(key: unknown, coord: CoordinateXY) {
+    this.index.set(key, coord)
   }
 
   setCoordGridItem(coord: CoordinateXY, item: A, indexKey: unknown = undefined): void {
