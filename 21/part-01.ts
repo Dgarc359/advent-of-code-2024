@@ -6,6 +6,7 @@ import { Node } from "@/util/index";
 import { Queue } from "@/util/queue";
 import { CoordinateXY } from "@/util/types";
 import { getAllCardinalCoordinatesIterWithOffset } from "@/util/grid-util";
+import { assert } from "node:console";
 
 // overall goal:
 // find the shortest path between a bunch of different nodes
@@ -67,12 +68,9 @@ directionalKeypad.setHeight(directionalKeypadValues.length);
 for (let y = 0; y < directionalKeypadValues.length; y++) {
   const row = directionalKeypadValues[y];
   directionalKeypad.setWidth(row.length);
+  directionalKeypad.pushToGrid(row.map((v, x) => new Node(v, { x, y })));
   for (let x = 0; x < row.length; x++) {
-    directionalKeypad.setCoordGridItem(
-      { x, y },
-      new Node(row[x], { x, y }),
-      row[x]
-    );
+    directionalKeypad.indexItem(row[x], { x, y });
   }
 }
 
@@ -149,7 +147,7 @@ function findShortestPath(
 ) {
 
   const precomputedPath = getPrecomputedShortestPath(startingNode, targetNode, cache)
-  
+
   if (precomputedPath) {
     return precomputedPath;
   }
@@ -158,16 +156,16 @@ function findShortestPath(
   const map = new GridContainer<Node, undefined>(undefined).fromGridContainer(mapGrid);
 
   const grid = map.getInnerGrid().flat()
-  .filter((node) => {
-    if (node.value === undefined) {
-      return false
-    }
+    .filter((node) => {
+      if (node.value === undefined) {
+        return false
+      }
 
-    if (node.value === startingNode.value) {
-      return false;
-    }
-    return true
-  })
+      if (node.value === startingNode.value) {
+        return false;
+      }
+      return true
+    })
   const q = new Queue<Node>([startingNode, ...grid]);
 
   while (q.size()) {
@@ -177,10 +175,7 @@ function findShortestPath(
       throw new Error("We had an issue finding a lowest value node");
     }
 
-    if (currentNode.value === undefined) {
-      // just skip nodes with undefined as the value
-      continue;
-    }
+    assert(currentNode.value !== undefined, "We should never have a node with an undefined value in the queue")
 
     if (currentNode.coord.x === targetNode.coord.x && currentNode.coord.y === targetNode.coord.y) {
       console.log("WE FOUND DA END AGAIN, path cost:", currentNode.getCost());
@@ -219,7 +214,17 @@ function addShortestPathToCache(
   shortestPath: Node,
   cache: Map<string, Node>
 ) {
-  const mapKey = `${startingNode.coord.x},${startingNode.coord.y},${targetNode.coord.x},${targetNode.coord.y}`;
+  let smallerNode: Node = undefined!
+  let biggerNode: Node = undefined!
+  if (startingNode.coord.x < targetNode.coord.x) {
+    smallerNode = startingNode;
+    biggerNode = targetNode;
+  } else {
+    smallerNode = targetNode;
+    biggerNode = startingNode;
+  }
+
+  const mapKey = `${smallerNode.coord.x},${smallerNode.coord.y},${biggerNode.coord.x},${biggerNode.coord.y}`;
   cache.set(mapKey, shortestPath);
 }
 
@@ -282,7 +287,7 @@ function getShortestPathToCurrentInstruction(
 
   const shortestCostNode = findShortestPath(startingNode, targetNode, grid, cache)
 
-  if(shortestCostNode === undefined) {
+  if (shortestCostNode === undefined) {
     throw new Error("We couldn't find a shortest path. We should be able to do that")
   }
 
