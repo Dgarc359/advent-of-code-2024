@@ -97,6 +97,10 @@ export class GridContainer<A, T> {
     }
   }
 
+  setInnerGrid(g: A[][]) {
+    this.grid = g;
+  }
+
   getInnerGrid(): A[][] {
     return this.grid;
   }

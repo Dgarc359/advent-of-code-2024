@@ -239,9 +239,9 @@ function getDirectionalInstruction(
   targetNode: Node,
 ): string {
   if (targetNode.coord.y < startingNode.coord.y) {
-    return "v"
-  } else if (targetNode.coord.y > startingNode.coord.y) {
     return "^"
+  } else if (targetNode.coord.y > startingNode.coord.y) {
+    return "v"
   }
 
   if (targetNode.coord.x < startingNode.coord.x) {
@@ -271,13 +271,23 @@ function constructPathFromNode(node: Node): string[] {
 }
 
 
+
+// workaround since our 'fromGridContainer' method doesn't give us a deep copy
+function resetNodesInGrid(grid: GridContainer<Node, undefined>) {
+  grid.setInnerGrid(grid.getInnerGrid().map((row) => {
+    return row.map((node) => {
+      const newNode = new Node(node.value, node.coord)
+      return newNode;
+    })
+  }))
+}
+
 function getShortestPathToCurrentInstruction(
   startingInstruction: string,
   targetInstruction: string,
   grid: GridContainer<Node, undefined>,
   cache: Map<string, Node>
 ) {
-  const gridCopy = new GridContainer<Node, undefined>(undefined).fromGridContainer(grid);
   const startingIdx = grid.indexOf(startingInstruction);
   const targetIdx = grid.indexOf(targetInstruction);
 
@@ -285,8 +295,8 @@ function getShortestPathToCurrentInstruction(
     throw new Error(`trying to target an untargettable instruction ${startingInstruction} ${targetInstruction}`)
   }
 
-  const startingNode = gridCopy.getCoordGridItem(startingIdx!)
-  const targetNode = gridCopy.getCoordGridItem(targetIdx!)
+  const startingNode = grid.getCoordGridItem(startingIdx!)
+  const targetNode = grid.getCoordGridItem(targetIdx!)
 
   if (!startingNode || !targetNode) {
     throw new Error("trying to target an untargettable instruction")
@@ -296,7 +306,7 @@ function getShortestPathToCurrentInstruction(
   // now find shortest path, remember to avoid undefined values for the path
   // ENTIRELY
 
-  const shortestCostNode = findShortestPath(startingNode, targetNode, gridCopy, cache)
+  const shortestCostNode = findShortestPath(startingNode, targetNode, grid, cache)
 
   if (shortestCostNode === undefined) {
     throw new Error("We couldn't find a shortest path. We should be able to do that")
@@ -332,6 +342,9 @@ function getButtonPresses(
         numpad,
         numpadPathCache
       );
+    
+    // reset costs after we've found the shortest path
+    resetNodesInGrid(numpad)
 
     // this robot is being controlled to press the initial path buttons
     const instructionsToInputShortestPath = "";
