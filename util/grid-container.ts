@@ -15,6 +15,8 @@ export class GridContainer<A, T> {
 
   outOfBoundsResponse: T;
 
+  private index: Map<unknown, CoordinateXY> = new Map();
+
   constructor(outOfBoundsResponse: T) {
     this.outOfBoundsResponse = outOfBoundsResponse;
   }
@@ -60,7 +62,18 @@ export class GridContainer<A, T> {
     return this.outOfBoundsResponse;
   }
 
-  setCoordGridItem(coord: CoordinateXY, item: A): void {
+  // this will help us retrieve specific node values we might
+  // want to find at a later point
+  // during `setCoordGridItem`, we can declare the key for our index
+  // for later retrieval
+  indexOf(key: unknown) {
+    return this.index.get(key)
+  }
+
+  setCoordGridItem(coord: CoordinateXY, item: A, indexKey: unknown = undefined): void {
+    // if no index key is passed, we're not doing explicit indexing
+    // of our grid container
+    this.index.set(indexKey!, coord)
     return this.setGridItem(coord.x, coord.y, item);
   }
 
