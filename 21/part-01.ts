@@ -8,6 +8,7 @@ import { CoordinateXY } from "@/util/types";
 import { getAllCardinalCoordinatesIterWithOffset } from "@/util/grid-util";
 import { assert } from "node:console";
 
+const input = fs.readFileSync("./input-02.txt").toString().split("\n");
 // overall goal:
 // find the shortest path between a bunch of different nodes
 // the shortest path we find needs to go through a few translation layers
@@ -74,7 +75,6 @@ for (let y = 0; y < directionalKeypadValues.length; y++) {
   }
 }
 
-const input = fs.readFileSync("./input-01.txt").toString().split("\n");
 
 function findLowestCostNodeInQueue(q: Queue<Node>): [Node, number] {
   let lowestCostNode: Node = undefined!;
@@ -211,17 +211,17 @@ function findShortestPath(
 }
 
 function generateCacheKey(a: Node, b: Node) {
-  let smallerNode: Node = undefined!
-  let biggerNode: Node = undefined!
-  if (a.coord.x < b.coord.x) {
-    smallerNode = a;
-    biggerNode = b;
-  } else {
-    smallerNode = b;
-    biggerNode = a;
-  }
+  // let smallerNode: Node = undefined!
+  // let biggerNode: Node = undefined!
+  // if (a.coord.x < b.coord.x) {
+  //   smallerNode = a;
+  //   biggerNode = b;
+  // } else {
+  //   smallerNode = b;
+  //   biggerNode = a;
+  // }
 
-  return `${smallerNode.value}::${biggerNode.value}`;
+  return `${a.value}::${b.value}`;
 }
 
 function addShortestPathToCache(
@@ -321,7 +321,7 @@ function getButtonPresses(
   instructions: string[],
   numpad: GridContainer<Node, undefined>,
   directionalKeypad: GridContainer<Node, undefined>
-): string[] {
+): string {
   const buttonPresses: string[] = []
 
   let previousInstruction: string = undefined!;
@@ -342,32 +342,72 @@ function getButtonPresses(
         numpad,
         numpadPathCache
       );
-    
+
     // reset costs after we've found the shortest path
     resetNodesInGrid(numpad)
 
+    let previousInstructionInput: string = undefined!;
     // this robot is being controlled to press the initial path buttons
-    const instructionsToInputShortestPath = "";
+    const instructionsToInputShortestPath = shortestPathToCurrentInstruction.flatMap((currInstruction, i, arr) => {
+      if (!previousInstructionInput) {
+        previousInstructionInput = "A";
+      }
 
+      const path = getShortestPathToCurrentInstruction(
+        previousInstructionInput,
+        currInstruction,
+        directionalKeypad,
+        directionalKeypadPathCache
+      );
+
+      resetNodesInGrid(directionalKeypad)
+
+      previousInstructionInput = currInstruction
+
+      return path
+    });
+
+    // these names are confusing but whatever... I dont want to shadow the other previous instructions
+    let previousInstructionInputTimesTwo: string = undefined!;
     // this robot is being controlled to press the initial path buttons
-    const instructionsToInputInstructionsToInputShortestPath = "";
+    const instructionsToInputInstructionsToInputShortestPath = instructionsToInputShortestPath.flatMap((currInstruction, i, arr) => {
+      if (!previousInstructionInputTimesTwo) {
+        previousInstructionInputTimesTwo = "A";
+      }
+
+      const path = getShortestPathToCurrentInstruction(
+        previousInstructionInputTimesTwo,
+        currInstruction,
+        directionalKeypad,
+        directionalKeypadPathCache
+      );
+
+      resetNodesInGrid(directionalKeypad)
+
+      previousInstructionInputTimesTwo = currInstruction
+
+      return path
+    });
+    resetNodesInGrid(directionalKeypad)
 
     // we're going to push in 'instructions to input instruction to input shortest path'
     // into the buttonpresses array
-    buttonPresses.push()
+    buttonPresses.push(instructionsToInputInstructionsToInputShortestPath.join(""))
 
     previousInstruction = instruction
   }
 
-  return buttonPresses;
+  return buttonPresses.join("");
 }
 
 // TODO: finish this function after completing get button presses
 function getComplexity(
   instructionString: string,
-  buttonPresses: string[]
+  buttonPresses: string
 ): number {
-  return 0;
+  const instructionNum = Number(instructionString.split("A")[0]).valueOf();
+  const length = buttonPresses.length
+  return length * instructionNum
 }
 
 let complexitySum = 0;
