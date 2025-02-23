@@ -9,7 +9,7 @@ import { getAllCardinalCoordinates, getAllCardinalCoordinatesIterWithOffset } fr
 import { assert } from "node:console";
 
 class DirectionalNode extends Node {
-  direction: DirectionVector = undefined!;
+  direction: Cardinals = undefined!;
   constructor(v: any, coord: CoordinateXY) {
     super(v, coord);
   }
@@ -17,7 +17,7 @@ class DirectionalNode extends Node {
   getPrevious() {
     return super.getPrevious() as DirectionalNode;
   }
-  setDirection(direction: DirectionVector) {
+  setDirection(direction: Cardinals) {
     this.direction = direction;
   }
   getDirection() {
@@ -25,7 +25,7 @@ class DirectionalNode extends Node {
   }
 }
 
-const input = fs.readFileSync("./input-02.txt").toString().split("\n");
+const input = fs.readFileSync("./input.txt").toString().split("\n");
 // overall goal:
 // find the shortest path between a bunch of different nodes
 // the shortest path we find needs to go through a few translation layers
@@ -142,16 +142,36 @@ function getCardinalDirectionBetweenTwoNodes(
 
 function calculateVariableCostOfMovingToCardinal(
   currentNode: DirectionalNode,
-  targetNode: DirectionalNode
+  targetNode: DirectionalNode,
+  finalNode: DirectionalNode,
 ) {
-  const directionBetweenNodes = getCardinalDirectionBetweenTwoNodes(currentNode, targetNode);
-
-  if (!currentNode.getDirection() || directionBetweenNodes === currentNode.getDirection().getDirection()) {
+  if(currentNode.getPrevious() === undefined) {
     return 1;
-  } else {
-    return 2
   }
 
+  const directionBetweenNodes = getCardinalDirectionBetweenTwoNodes(currentNode, targetNode);
+
+  const yCoordDiff = Math.abs(finalNode.coord.y - currentNode.coord.y)
+  const xCoordDiff = Math.abs(finalNode.coord.x - currentNode.coord.x)
+
+  let directionCost = yCoordDiff + xCoordDiff;
+
+  if (!currentNode.getDirection() || directionBetweenNodes === currentNode.getDirection()) {
+    // return rec;
+    directionCost = directionCost + 1
+  } else {
+    // return 2
+    directionCost = directionCost + 2;
+  }
+
+  return directionCost
+}
+
+function twoNodesAreEqual(a: Node, b: Node) {
+  if (a === undefined || b === undefined) {
+    return false
+  }
+  return a.coord.x === b.coord.x && a.coord.y === b.coord.y
 }
 
 // this is modified from day 20
@@ -179,17 +199,6 @@ function findShortestPath(
   // // create a copy of whatever grid container is being used to avoid side effects
   const map = new GridContainer<DirectionalNode, undefined>(undefined).fromGridContainer(mapGrid);
 
-  const grid = map.getInnerGrid().flat()
-    .filter((node) => {
-      if (node.value === undefined) {
-        return false
-      }
-
-      if (node.value === startingNode.value) {
-        return false;
-      }
-      return true
-    })
   const q = new Queue<DirectionalNode>([startingNode]);
 
   while (q.size()) {
@@ -199,34 +208,54 @@ function findShortestPath(
       throw new Error("We had an issue finding a lowest value node");
     }
 
+
     assert(currentNode.value !== undefined, "We should never have a node with an undefined value in the queue")
 
-    const cardinalCoordinates = getAllCardinalCoordinatesIterWithOffset(currentNode.coord).map(coord => map.getCoordGridItem(coord)).filter(node => node !== undefined) as DirectionalNode[];
+    if (twoNodesAreEqual(currentNode, targetNode)) {
+      // console.log("we found a match between nodes, we need to take an action of some sort")
+      continue; // ??
+    }
 
-    // const cardinalCoords = getAllCardinalCoordinates(currentNode.coord);
+    const cardinalCoordinates = getAllCardinalCoordinatesIterWithOffset(currentNode.coord)
+      .map(coord => {
+        const oldNode = map.getCoordGridItem(coord)
+        if (oldNode === undefined) return oldNode;
+
+        const newNode = new DirectionalNode(oldNode.value, oldNode.coord)
+        return newNode
+      })
+      .filter(node => node !== undefined) as DirectionalNode[];
 
     for (const cardinalNode of cardinalCoordinates) {
-      if (cardinalNode.value === undefined) {
+      if (cardinalNode.value === undefined || twoNodesAreEqual(currentNode.getPrevious(), cardinalNode)) {
         continue;
       }
 
-      const variableCostOfMoving  = calculateVariableCostOfMovingToCardinal(currentNode, cardinalNode);
+      const variableCostOfMoving  = calculateVariableCostOfMovingToCardinal(currentNode, cardinalNode, targetNode);
       const calculatedCostForMoveToCardinal = currentNode.cost + variableCostOfMoving;
 
-      if (calculatedCostForMoveToCardinal < targetNode.cost) {
+      const lowestCostCardinalNode = map.getCoordGridItem(cardinalNode.coord)
+      assert(lowestCostCardinalNode !== undefined, "we should have our node in the mapgrid, otherwise we wouldn't be in this iteration right now")
+
+      if (calculatedCostForMoveToCardinal <= lowestCostCardinalNode!.cost) {
+        lowestCostCardinalNode!.setPrevious(currentNode);
+        lowestCostCardinalNode!.setCost(calculatedCostForMoveToCardinal)
+        map.setCoordGridItem(cardinalNode.coord, lowestCostCardinalNode!);
+
         cardinalNode.setCost(calculatedCostForMoveToCardinal);
         cardinalNode.setPrevious(currentNode);
-        const newDirection = new DirectionVector(getCardinalDirectionBetweenTwoNodes(currentNode, cardinalNode))
-        cardinalNode.setDirection(newDirection)
+        const newDireciton = getCardinalDirectionBetweenTwoNodes(currentNode, cardinalNode)
+        cardinalNode.setDirection(newDireciton)
 
         // q.replace(cardinalIdx, node);
-        map.setCoordGridItem(cardinalNode.coord, cardinalNode);
         q.enqueue(cardinalNode);
       }
     }
 
     map.setCoordGridItem(currentNode.coord, currentNode);
   }
+
+  return map.getCoordGridItem(targetNode.coord)!
 }
 
 function generateCacheKey(a: DirectionalNode, b: DirectionalNode) {
