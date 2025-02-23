@@ -4,9 +4,26 @@ import fs from "node:fs";
 import { GridContainer } from "@/util/grid-container";
 import { Node } from "@/util/index";
 import { Queue } from "@/util/queue";
-import { CoordinateXY } from "@/util/types";
-import { getAllCardinalCoordinatesIterWithOffset } from "@/util/grid-util";
+import { Cardinals, CoordinateXY } from "@/util/types";
+import { getAllCardinalCoordinates, getAllCardinalCoordinatesIterWithOffset } from "@/util/grid-util";
 import { assert } from "node:console";
+
+class DirectionalNode extends Node {
+  direction: DirectionVector = undefined!;
+  constructor(v: any, coord: CoordinateXY) {
+    super(v, coord);
+  }
+
+  getPrevious() {
+    return super.getPrevious() as DirectionalNode;
+  }
+  setDirection(direction: DirectionVector) {
+    this.direction = direction;
+  }
+  getDirection() {
+    return this.direction;
+  }
+}
 
 const input = fs.readFileSync("./input-02.txt").toString().split("\n");
 // overall goal:
@@ -35,8 +52,8 @@ const input = fs.readFileSync("./input-02.txt").toString().split("\n");
 // but it does look like we need to avoid pathing over the undefined keys
 // on the key pads
 
-type Numpad = GridContainer<Node, undefined>;
-const numpad: Numpad = new GridContainer<Node, undefined>(undefined);
+type Numpad = GridContainer<DirectionalNode, undefined>;
+const numpad: Numpad = new GridContainer<DirectionalNode, undefined>(undefined);
 
 const numpadValues = [
   ["7", "8", "9"],
@@ -49,16 +66,16 @@ numpad.setHeight(numpadValues.length);
 for (let y = 0; y < numpadValues.length; y++) {
   const row = numpadValues[y];
   numpad.setWidth(row.length);
-  numpad.pushToGrid(row.map((v, x) => new Node(v, { x, y })));
+  numpad.pushToGrid(row.map((v, x) => new DirectionalNode(v, { x, y })));
 
   for (let x = 0; x < row.length; x++) {
     numpad.indexItem(row[x], { x, y });
   }
 }
 
-type DirectionalKeypad = GridContainer<Node, undefined>
+type DirectionalKeypad = GridContainer<DirectionalNode, undefined>
 
-const directionalKeypad: DirectionalKeypad = new GridContainer<Node, undefined>(undefined);
+const directionalKeypad: DirectionalKeypad = new GridContainer<DirectionalNode, undefined>(undefined);
 
 const directionalKeypadValues = [
   [undefined, "^", "A"],
@@ -69,66 +86,73 @@ directionalKeypad.setHeight(directionalKeypadValues.length);
 for (let y = 0; y < directionalKeypadValues.length; y++) {
   const row = directionalKeypadValues[y];
   directionalKeypad.setWidth(row.length);
-  directionalKeypad.pushToGrid(row.map((v, x) => new Node(v, { x, y })));
+  directionalKeypad.pushToGrid(row.map((v, x) => new DirectionalNode(v, { x, y })));
   for (let x = 0; x < row.length; x++) {
     directionalKeypad.indexItem(row[x], { x, y });
   }
 }
 
 
-function findLowestCostNodeInQueue(q: Queue<Node>): [Node, number] {
-  let lowestCostNode: Node = undefined!;
-  let lowestCostIdx: number = undefined!;
-
-  q.forEach((node, i) => {
-    if (lowestCostNode === undefined) {
-      lowestCostNode = node;
-      lowestCostIdx = i;
-      return;
-    }
-
-    if (node.cost <= lowestCostNode.cost) {
-      lowestCostNode = node;
-      lowestCostIdx = i;
-      return;
-    }
-  });
-
-  return [q.dequeue(lowestCostIdx)!, lowestCostIdx];
-}
-
-function coordIsStillInQueue(coord: CoordinateXY, q: Queue<Node>): boolean {
-  let isStillInQueue = false;
-
-  q.forEach((node) => {
-    if (node.coord.x === coord.x && node.coord.y === coord.y) {
-      isStillInQueue = true;
-    }
-  });
-
-  return isStillInQueue;
-}
-
-function getNodeFromQueue(coord: CoordinateXY, q: Queue<Node>): [Node, number] {
-  let targetNode: Node = undefined!;
-  let targetIdx: number = undefined!;
-
-  q.forEach((node, i) => {
-    if (node.coord.x === coord.x && node.coord.y === coord.y) {
-      targetNode = node;
-      targetIdx = i;
-    }
-  });
-
-  return [targetNode, targetIdx];
-}
-
-
-function getPrecomputedShortestPath(startingNode: Node, targetNode: Node, cache: Map<string, Node>) {
+function getPrecomputedShortestPath(startingNode: DirectionalNode, targetNode: DirectionalNode, cache: Map<string, DirectionalNode>) {
   const cacheKey = generateCacheKey(startingNode, targetNode);
   return cache.get(cacheKey)
 }
 
+
+class DirectionVector {
+  private direction: Cardinals;
+
+  constructor(direction?: Cardinals) {
+    this.direction = direction!;
+  }
+
+  setDirection(direction: Cardinals) {
+    this.direction = direction;
+  }
+
+  getDirection() {
+    return this.direction;
+  }
+
+
+  // TODO: give option to map values to 'direction'
+}
+
+function getCardinalDirectionBetweenTwoNodes(
+  sourceNode: DirectionalNode,
+  targetNode: DirectionalNode,
+): Cardinals {
+  if (targetNode.coord.y < sourceNode.coord.y) {
+    return "north";
+  } else if (targetNode.coord.y > sourceNode.coord.y) {
+    return "south";
+  }
+
+  if (targetNode.coord.x < sourceNode.coord.x) {
+    return "west";
+  } else if (targetNode.coord.x > sourceNode.coord.x) {
+    return "east";
+  }
+
+  throw new Error("We couldn't find a direction to move in");
+
+
+}
+
+
+function calculateVariableCostOfMovingToCardinal(
+  currentNode: DirectionalNode,
+  targetNode: DirectionalNode
+) {
+  const directionBetweenNodes = getCardinalDirectionBetweenTwoNodes(currentNode, targetNode);
+
+  if (!currentNode.getDirection() || directionBetweenNodes === currentNode.getDirection().getDirection()) {
+    return 1;
+  } else {
+    return 2
+  }
+
+}
 
 // this is modified from day 20
 // name, removing requiring passing a Queue object
@@ -140,10 +164,10 @@ function getPrecomputedShortestPath(startingNode: Node, targetNode: Node, cache:
 // I _DO_ want to add the ability to pass some kind of cache or memo
 // so that we can avoid recomputing paths we've already computed
 function findShortestPath(
-  startingNode: Node,
-  targetNode: Node,
-  mapGrid: GridContainer<Node, undefined>,
-  cache: Map<string, Node>
+  startingNode: DirectionalNode,
+  targetNode: DirectionalNode,
+  mapGrid: GridContainer<DirectionalNode, undefined>,
+  cache: Map<string, DirectionalNode>
 ) {
 
   const precomputedPath = getPrecomputedShortestPath(startingNode, targetNode, cache)
@@ -153,7 +177,7 @@ function findShortestPath(
   }
 
   // // create a copy of whatever grid container is being used to avoid side effects
-  const map = new GridContainer<Node, undefined>(undefined).fromGridContainer(mapGrid);
+  const map = new GridContainer<DirectionalNode, undefined>(undefined).fromGridContainer(mapGrid);
 
   const grid = map.getInnerGrid().flat()
     .filter((node) => {
@@ -166,77 +190,62 @@ function findShortestPath(
       }
       return true
     })
-  const q = new Queue<Node>([startingNode, ...grid]);
+  const q = new Queue<DirectionalNode>([startingNode]);
 
   while (q.size()) {
-    const [currentNode, nodeIdx] = findLowestCostNodeInQueue(q);
+    const currentNode = q.dequeue();
 
-    if (currentNode === undefined || nodeIdx === undefined) {
+    if (currentNode === undefined) {
       throw new Error("We had an issue finding a lowest value node");
     }
 
     assert(currentNode.value !== undefined, "We should never have a node with an undefined value in the queue")
 
-    if (currentNode.coord.x === targetNode.coord.x && currentNode.coord.y === targetNode.coord.y) {
-      // console.log("WE FOUND DA END AGAIN, path cost:", currentNode.getCost());
-      return currentNode;
-    }
+    const cardinalCoordinates = getAllCardinalCoordinatesIterWithOffset(currentNode.coord).map(coord => map.getCoordGridItem(coord)).filter(node => node !== undefined) as DirectionalNode[];
 
-    const cardinalCoordinates = getAllCardinalCoordinatesIterWithOffset(
-      currentNode.coord
-    );
-    const cardinalsStillInQueue = cardinalCoordinates.filter((coord) =>
-      coordIsStillInQueue(coord, q)
-    );
+    // const cardinalCoords = getAllCardinalCoordinates(currentNode.coord);
 
-    for (const cardinal of cardinalsStillInQueue) {
-      const calculatedCostForMoveToCardinal = currentNode.cost + 1;
-      const [node, cardinalIdx] = getNodeFromQueue(cardinal, q);
-      if (node.value === "#") {
+    for (const cardinalNode of cardinalCoordinates) {
+      if (cardinalNode.value === undefined) {
         continue;
       }
 
-      if (calculatedCostForMoveToCardinal < node.cost) {
-        node.setCost(calculatedCostForMoveToCardinal);
-        node.setPrevious(currentNode);
+      const variableCostOfMoving  = calculateVariableCostOfMovingToCardinal(currentNode, cardinalNode);
+      const calculatedCostForMoveToCardinal = currentNode.cost + variableCostOfMoving;
 
-        q.replace(cardinalIdx, node);
+      if (calculatedCostForMoveToCardinal < targetNode.cost) {
+        cardinalNode.setCost(calculatedCostForMoveToCardinal);
+        cardinalNode.setPrevious(currentNode);
+        const newDirection = new DirectionVector(getCardinalDirectionBetweenTwoNodes(currentNode, cardinalNode))
+        cardinalNode.setDirection(newDirection)
+
+        // q.replace(cardinalIdx, node);
+        map.setCoordGridItem(cardinalNode.coord, cardinalNode);
+        q.enqueue(cardinalNode);
       }
     }
 
     map.setCoordGridItem(currentNode.coord, currentNode);
   }
-
-  // return map.getCoordGridItem(targetNode.coord);
 }
 
-function generateCacheKey(a: Node, b: Node) {
-  // let smallerNode: Node = undefined!
-  // let biggerNode: Node = undefined!
-  // if (a.coord.x < b.coord.x) {
-  //   smallerNode = a;
-  //   biggerNode = b;
-  // } else {
-  //   smallerNode = b;
-  //   biggerNode = a;
-  // }
-
+function generateCacheKey(a: DirectionalNode, b: DirectionalNode) {
   return `${a.value}::${b.value}`;
 }
 
 function addShortestPathToCache(
-  startingNode: Node,
-  targetNode: Node,
-  shortestPath: Node,
-  cache: Map<string, Node>
+  startingNode: DirectionalNode,
+  targetNode: DirectionalNode,
+  shortestPath: DirectionalNode,
+  cache: Map<string, DirectionalNode>
 ) {
   const cacheKey = generateCacheKey(startingNode, targetNode);
   cache.set(cacheKey, shortestPath);
 }
 
 function getDirectionalInstruction(
-  startingNode: Node,
-  targetNode: Node,
+  startingNode: DirectionalNode,
+  targetNode: DirectionalNode,
 ): string {
   if (targetNode.coord.y < startingNode.coord.y) {
     return "^"
@@ -254,11 +263,11 @@ function getDirectionalInstruction(
 }
 
 
-function constructPathFromNode(node: Node): string[] {
+function constructPathFromNode(node: DirectionalNode): string[] {
   // we want A to be our last instruction for a specific path
   const path: string[] = ["A"];
 
-  let currentNode: Node = node;
+  let currentNode: DirectionalNode = node;
 
   while (currentNode.getPrevious()) {
     const directionalInstruction = getDirectionalInstruction(currentNode.getPrevious(), currentNode)
@@ -273,10 +282,10 @@ function constructPathFromNode(node: Node): string[] {
 
 
 // workaround since our 'fromGridContainer' method doesn't give us a deep copy
-function resetNodesInGrid(grid: GridContainer<Node, undefined>) {
+function resetNodesInGrid(grid: GridContainer<DirectionalNode, undefined>) {
   grid.setInnerGrid(grid.getInnerGrid().map((row) => {
     return row.map((node) => {
-      const newNode = new Node(node.value, node.coord)
+      const newNode = new DirectionalNode(node.value, node.coord)
       return newNode;
     })
   }))
@@ -285,8 +294,8 @@ function resetNodesInGrid(grid: GridContainer<Node, undefined>) {
 function getShortestPathToCurrentInstruction(
   startingInstruction: string,
   targetInstruction: string,
-  grid: GridContainer<Node, undefined>,
-  cache: Map<string, Node>
+  grid: GridContainer<DirectionalNode, undefined>,
+  cache: Map<string, DirectionalNode>
 ) {
   const startingIdx = grid.indexOf(startingInstruction);
   const targetIdx = grid.indexOf(targetInstruction);
@@ -319,15 +328,15 @@ function getShortestPathToCurrentInstruction(
 
 function getButtonPresses(
   instructions: string[],
-  numpad: GridContainer<Node, undefined>,
-  directionalKeypad: GridContainer<Node, undefined>
+  numpad: GridContainer<DirectionalNode, undefined>,
+  directionalKeypad: GridContainer<DirectionalNode, undefined>
 ): string {
   const buttonPresses: string[] = []
 
   let previousInstruction: string = undefined!;
 
-  const numpadPathCache = new Map<string, Node>();
-  const directionalKeypadPathCache = new Map<string, Node>();
+  const numpadPathCache = new Map<string, DirectionalNode>();
+  const directionalKeypadPathCache = new Map<string, DirectionalNode>();
 
   for (const instruction of instructions) {
     if (!previousInstruction) {
