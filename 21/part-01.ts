@@ -25,7 +25,7 @@ class DirectionalNode extends Node {
   }
 }
 
-const input = fs.readFileSync("./input-01.txt").toString().split("\n");
+const input = fs.readFileSync("./input.txt").toString().split("\n");
 // overall goal:
 // find the shortest path between a bunch of different nodes
 // the shortest path we find needs to go through a few translation layers
@@ -196,7 +196,9 @@ function findShortestPaths(
   //   return precomputedPath;
   // }
 
-  const shortestNodes: DirectionalNode[] = []  
+  let lowestCost = Infinity;
+
+  let shortestNodes: DirectionalNode[] = []  
 
   // // create a copy of whatever grid container is being used to avoid side effects
   const map = new GridContainer<DirectionalNode, undefined>(undefined).fromGridContainer(mapGrid);
@@ -243,13 +245,19 @@ function findShortestPaths(
 
         cardinalNode.setCost(calculatedCostForMoveToCardinal);
         cardinalNode.setPrevious(currentNode);
-        const newDireciton = getCardinalDirectionBetweenTwoNodes(currentNode, cardinalNode)
-        cardinalNode.setDirection(newDireciton)
+        const newDirection = getCardinalDirectionBetweenTwoNodes(currentNode, cardinalNode)
+        cardinalNode.setDirection(newDirection)
 
         // q.replace(cardinalIdx, node);
         q.enqueue(cardinalNode);
 
         if (twoNodesAreEqual(cardinalNode, targetNode)) {
+          // if current node is shorter than shortest length, then
+          // clear shortest nodes
+          if(cardinalNode.getCost() < lowestCost) {
+            lowestCost = cardinalNode.getCost()
+            shortestNodes = []
+          }
           shortestNodes.push(cardinalNode)
         }
       }
@@ -391,7 +399,8 @@ function getButtonPresses(
 
     let previousInstructionInput: string = undefined!;
     // this robot is being controlled to press the initial path buttons
-    const instructionsToInputShortestPath = shortestPathToCurrentInstruction.map(instructions => instructions.flatMap((currInstruction, i, arr) => {
+    const instructionsToInputShortestPath = shortestPathToCurrentInstruction
+      .map(instructions => instructions.flatMap((currInstruction, i, arr) => {
       if (!previousInstructionInput) {
         previousInstructionInput = "A";
       }
@@ -407,20 +416,36 @@ function getButtonPresses(
 
       previousInstructionInput = currInstruction
 
-      return paths
-    }).reduce((prev, curr) => prev.concat(curr), []));
+      // return paths
+      let shortestPathLength = Infinity;
+      let shortestPath = undefined
+
+      for (const path of paths) {
+        if (path.length <= shortestPathLength) {
+          shortestPathLength = path.length;
+          shortestPath = path
+        }
+      }
+
+      if (shortestPath === undefined) {
+        return ['A']
+      }
+
+      return shortestPath
+    }));
 
     console.log("T")
 
     // these names are confusing but whatever... I dont want to shadow the other previous instructions
     let previousInstructionInputTimesTwo: string = undefined!;
     // this robot is being controlled to press the initial path buttons
-    const instructionsToInputInstructionsToInputShortestPath = instructionsToInputShortestPath.map(instr => instr.flatMap((currInstruction, i, arr) => {
+    const instructionsToInputInstructionsToInputShortestPath = instructionsToInputShortestPath
+    .map(instr => instr.flatMap((currInstruction, i, arr) => {
       if (!previousInstructionInputTimesTwo) {
         previousInstructionInputTimesTwo = "A";
       }
 
-      const path = getShortestPathsToCurrentInstruction(
+      const paths = getShortestPathsToCurrentInstruction(
         previousInstructionInputTimesTwo,
         currInstruction,
         directionalKeypad,
@@ -431,21 +456,44 @@ function getButtonPresses(
 
       previousInstructionInputTimesTwo = currInstruction
 
-      return path
-    }).reduce((prev, curr) => prev.concat(curr), []));
-    resetNodesInGrid(directionalKeypad)
+      // just get the shortest path at this point.. that's all that matters
+      // for this one
+      let shortestPathLength = Infinity;
+      let shortestPath = undefined
 
-    const smallestPath = instructionsToInputInstructionsToInputShortestPath.reduce((previous, curr) => {
-      if (previous.length < curr.length) {
-        return previous
+      for (const path of paths) {
+        if (path.length <= shortestPathLength) {
+          shortestPathLength = path.length;
+          shortestPath = path
+        }
       }
 
-      return curr
-    })
+      return shortestPath
+    }).map((val) => {
+      if (val === undefined) {
+        return 'A'
+      } else {
+        return val
+      }
+    }));
 
+    resetNodesInGrid(directionalKeypad)
+
+
+    let shortestPathLength = Infinity;
+    let shortestPath: string[] = []
+
+    for (const instr of instructionsToInputInstructionsToInputShortestPath) {
+      if (instr.length <= shortestPathLength) {
+        shortestPathLength = instr.length
+        shortestPath = instr
+      }
+    }
+
+    const smallestPathStr = shortestPath!.join("")
     // we're going to push in 'instructions to input instruction to input shortest path'
     // into the buttonpresses array
-    buttonPresses.push(smallestPath.join(""))
+    buttonPresses.push(smallestPathStr)
 
     console.log("T")
 
