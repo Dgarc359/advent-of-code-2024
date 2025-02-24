@@ -59,20 +59,6 @@ class SecretNumber extends Number {
 }
 
 
-class SecretNumberCache extends Map<string, SecretNumber> {
-  addToCache(input: SecretNumber, result: SecretNumber, action: "prune" | "mix") {
-    const cacheKey = `${action}:${input.valueOf()}`
-
-    // TODO: check if it's in cache first
-    // we've already cached this result?
-    // DESIGN DECISION: it doesn't matter if we've cached the result. If we decide to explicitly
-    // add to the cache, it's not the cache's responsibility to decide whether or not
-    // to add the object in the end
-
-    this.set(cacheKey, result)
-  }
-}
-
 const generatedNumbers = []
 
 for (const inputRow of input.split("\n")) {
@@ -80,8 +66,6 @@ for (const inputRow of input.split("\n")) {
 
   for (let i = 0; i < MAX_SECRETS_TO_GENERATE; i++) {
     const generatedNum = currentValue.evolve()
-
-    // generatedNumbers.push(generatedNum.valueOf())
 
     currentValue = generatedNum
   }
