@@ -25,7 +25,7 @@ class DirectionalNode extends Node {
   }
 }
 
-const input = fs.readFileSync("./input.txt").toString().split("\n");
+const input = fs.readFileSync("./input-01.txt").toString().split("\n");
 // overall goal:
 // find the shortest path between a bunch of different nodes
 // the shortest path we find needs to go through a few translation layers
@@ -183,18 +183,20 @@ function twoNodesAreEqual(a: Node, b: Node) {
 
 // I _DO_ want to add the ability to pass some kind of cache or memo
 // so that we can avoid recomputing paths we've already computed
-function findShortestPath(
+function findShortestPaths(
   startingNode: DirectionalNode,
   targetNode: DirectionalNode,
   mapGrid: GridContainer<DirectionalNode, undefined>,
   cache: Map<string, DirectionalNode>
-) {
+): DirectionalNode[] {
 
-  const precomputedPath = getPrecomputedShortestPath(startingNode, targetNode, cache)
+  // const precomputedPath = getPrecomputedShortestPath(startingNode, targetNode, cache)
 
-  if (precomputedPath) {
-    return precomputedPath;
-  }
+  // if (precomputedPath) {
+  //   return precomputedPath;
+  // }
+
+  const shortestNodes: DirectionalNode[] = []  
 
   // // create a copy of whatever grid container is being used to avoid side effects
   const map = new GridContainer<DirectionalNode, undefined>(undefined).fromGridContainer(mapGrid);
@@ -211,10 +213,7 @@ function findShortestPath(
 
     assert(currentNode.value !== undefined, "We should never have a node with an undefined value in the queue")
 
-    if (twoNodesAreEqual(currentNode, targetNode)) {
-      // console.log("we found a match between nodes, we need to take an action of some sort")
-      continue; // ??
-    }
+    
 
     const cardinalCoordinates = getAllCardinalCoordinatesIterWithOffset(currentNode.coord)
       .map(coord => {
@@ -249,13 +248,18 @@ function findShortestPath(
 
         // q.replace(cardinalIdx, node);
         q.enqueue(cardinalNode);
+
+        if (twoNodesAreEqual(cardinalNode, targetNode)) {
+          shortestNodes.push(cardinalNode)
+        }
       }
     }
 
     map.setCoordGridItem(currentNode.coord, currentNode);
+
   }
 
-  return map.getCoordGridItem(targetNode.coord)!
+  return shortestNodes
 }
 
 function generateCacheKey(a: DirectionalNode, b: DirectionalNode) {
@@ -320,12 +324,12 @@ function resetNodesInGrid(grid: GridContainer<DirectionalNode, undefined>) {
   }))
 }
 
-function getShortestPathToCurrentInstruction(
+function getShortestPathsToCurrentInstruction(
   startingInstruction: string,
   targetInstruction: string,
   grid: GridContainer<DirectionalNode, undefined>,
   cache: Map<string, DirectionalNode>
-) {
+): string[][] {
   const startingIdx = grid.indexOf(startingInstruction);
   const targetIdx = grid.indexOf(targetInstruction);
 
@@ -344,15 +348,16 @@ function getShortestPathToCurrentInstruction(
   // now find shortest path, remember to avoid undefined values for the path
   // ENTIRELY
 
-  const shortestCostNode = findShortestPath(startingNode, targetNode, grid, cache)
+  const shortestCostNodes = findShortestPaths(startingNode, targetNode, grid, cache)
 
-  if (shortestCostNode === undefined) {
+  if (shortestCostNodes === undefined) {
     throw new Error("We couldn't find a shortest path. We should be able to do that")
   }
 
-  addShortestPathToCache(startingNode, targetNode, shortestCostNode, cache)
+  // TODO: caching might be weird since we have multiple nodes
+  // addShortestPathToCache(startingNode, targetNode, shortestCostNodes, cache)
 
-  return constructPathFromNode(shortestCostNode);
+  return shortestCostNodes.map((node) => constructPathFromNode(node));
 }
 
 function getButtonPresses(
@@ -374,7 +379,7 @@ function getButtonPresses(
 
     // this path should be for the initial ROBOT
     const shortestPathToCurrentInstruction =
-      getShortestPathToCurrentInstruction(
+      getShortestPathsToCurrentInstruction(
         previousInstruction,
         instruction,
         numpad,
@@ -386,12 +391,12 @@ function getButtonPresses(
 
     let previousInstructionInput: string = undefined!;
     // this robot is being controlled to press the initial path buttons
-    const instructionsToInputShortestPath = shortestPathToCurrentInstruction.flatMap((currInstruction, i, arr) => {
+    const instructionsToInputShortestPath = shortestPathToCurrentInstruction.map(instructions => instructions.flatMap((currInstruction, i, arr) => {
       if (!previousInstructionInput) {
         previousInstructionInput = "A";
       }
 
-      const path = getShortestPathToCurrentInstruction(
+      const paths = getShortestPathsToCurrentInstruction(
         previousInstructionInput,
         currInstruction,
         directionalKeypad,
@@ -402,18 +407,20 @@ function getButtonPresses(
 
       previousInstructionInput = currInstruction
 
-      return path
-    });
+      return paths
+    }).reduce((prev, curr) => prev.concat(curr), []));
+
+    console.log("T")
 
     // these names are confusing but whatever... I dont want to shadow the other previous instructions
     let previousInstructionInputTimesTwo: string = undefined!;
     // this robot is being controlled to press the initial path buttons
-    const instructionsToInputInstructionsToInputShortestPath = instructionsToInputShortestPath.flatMap((currInstruction, i, arr) => {
+    const instructionsToInputInstructionsToInputShortestPath = instructionsToInputShortestPath.map(instr => instr.flatMap((currInstruction, i, arr) => {
       if (!previousInstructionInputTimesTwo) {
         previousInstructionInputTimesTwo = "A";
       }
 
-      const path = getShortestPathToCurrentInstruction(
+      const path = getShortestPathsToCurrentInstruction(
         previousInstructionInputTimesTwo,
         currInstruction,
         directionalKeypad,
@@ -425,12 +432,22 @@ function getButtonPresses(
       previousInstructionInputTimesTwo = currInstruction
 
       return path
-    });
+    }).reduce((prev, curr) => prev.concat(curr), []));
     resetNodesInGrid(directionalKeypad)
+
+    const smallestPath = instructionsToInputInstructionsToInputShortestPath.reduce((previous, curr) => {
+      if (previous.length < curr.length) {
+        return previous
+      }
+
+      return curr
+    })
 
     // we're going to push in 'instructions to input instruction to input shortest path'
     // into the buttonpresses array
-    buttonPresses.push(instructionsToInputInstructionsToInputShortestPath.join(""))
+    buttonPresses.push(smallestPath.join(""))
+
+    console.log("T")
 
     previousInstruction = instruction
   }
