@@ -55,13 +55,10 @@ while (true) {
   input = input.slice(idxOfNewline +1)
 }
 
-console.log("t")
-
 
 let sumOfLockkeyPairsThatFit = 0;
 
 function lockAndKeyOverlap(lock: number[], key: number[]): boolean {
-  console.log("t")
   for(let i = 0; i < lock.length; i++) {
     const lockVal = lock[i]
     const keyVal = key[i]
