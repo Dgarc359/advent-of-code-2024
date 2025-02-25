@@ -1,5 +1,10 @@
 # Advent of Code 2024 solutions
 
+This project is officially completed! All days of advent of code have had at least their first parts solved :D
+
+![stars](playground/aoc-stars.jpg)
+
+
 This project uses typescript and yarn
 
 # Installation
