@@ -77,4 +77,3 @@ function findCyclicTriplets(q: Queue<Vertex>) {
 const triplets = findCyclicTriplets(initialVertexQ)
 
 console.log(triplets[1])
-
